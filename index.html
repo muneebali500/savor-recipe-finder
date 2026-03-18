@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Savor - Advanced Recipe Finder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Karla:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <button class="logo" type="button" aria-label="Back to top">
+        <span class="logo-dot"></span>
+        Sa<span>vor</span>
+      </button>
+
+      <div class="header-rights">
+        <button class="hdr-btn" type="button" id="ingrToggleBtn">
+          <span aria-hidden="true">🥕</span><span>By Ingredient</span>
+        </button>
+        <button class="hdr-btn" type="button">
+          <span aria-hidden="true">📅</span><span>Meal Plan</span>
+        </button>
+        <button class="hdr-btn" type="button">
+          <span aria-hidden="true">🛒</span><span>Shopping</span>
+        </button>
+        <button class="hdr-btn" type="button">
+          <span aria-hidden="true">♥</span><span>Saved</span>
+          <span class="fav-count">0</span>
+        </button>
+        <button class="theme-btn" type="button" id="infoBtn" title="About Savor">
+          i
+        </button>
+        <button class="theme-btn" type="button" id="themeBtn" title="Toggle theme">
+          🌙
+        </button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <p class="hero-eyebrow">Powered by TheMealDB</p>
+      <h1>Discover <em>recipes</em><br />you'll adore</h1>
+      <p class="hero-sub">
+        Search thousands of real dishes, plan your week, and build smart
+        shopping lists.
+      </p>
+
+      <div class="search-wrap">
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Try 'pasta', 'chicken curry', 'chocolate cake'..."
+              autocomplete="off"
+            />
+          </div>
+          <button class="search-btn" type="button" id="searchBtn">Search</button>
+        </div>
+        <button class="random-btn" type="button" id="randomBtn">
+          🎲 Surprise me - random recipe
+        </button>
+      </div>
+
+      <div class="suggestions" aria-label="Popular searches">
+        <button class="suggestion-chip" type="button" data-search="pasta">
+          🍝 Pasta
+        </button>
+        <button class="suggestion-chip" type="button" data-search="chicken">
+          🍗 Chicken
+        </button>
+        <button class="suggestion-chip" type="button" data-search="beef">
+          🥩 Beef
+        </button>
+        <button class="suggestion-chip" type="button" data-search="salmon">
+          🐟 Salmon
+        </button>
+        <button class="suggestion-chip" type="button" data-search="chocolate cake">
+          🍰 Chocolate Cake
+        </button>
+        <button class="suggestion-chip" type="button" data-search="tacos">
+          🌮 Tacos
+        </button>
+        <button class="suggestion-chip" type="button" data-search="curry">
+          🍛 Curry
+        </button>
+      </div>
+    </section>
+
+    <div class="ingr-search-bar" id="ingrSearchBar">
+      <span class="ingr-label">🥕 Find by ingredients:</span>
+      <div class="ingr-input-wrap">
+        <input
+          type="text"
+          id="ingrInput"
+          placeholder="Add ingredient (e.g. chicken, garlic...)"
+          autocomplete="off"
+        />
+        <button class="ingr-add-btn" type="button" id="addIngredientBtn">
+          + Add
+        </button>
+      </div>
+      <div class="ingr-tags" id="ingrTags"></div>
+      <button class="ingr-search-btn" type="button" id="ingredientSearchBtn">
+        Find Recipes →
+      </button>
+    </div>
+
+    <div class="filters-bar" aria-label="Cuisine filters">
+      <span class="filter-label">Area</span>
+      <button class="filter-chip" type="button">🇬🇧 British</button>
+      <button class="filter-chip" type="button">🇮🇹 Italian</button>
+      <button class="filter-chip" type="button">🇲🇽 Mexican</button>
+      <button class="filter-chip" type="button">🇯🇵 Japanese</button>
+      <button class="filter-chip" type="button">🇮🇳 Indian</button>
+      <button class="filter-chip" type="button">🇨🇳 Chinese</button>
+      <button class="filter-chip" type="button">🇫🇷 French</button>
+      <button class="filter-chip" type="button">🇹🇭 Thai</button>
+      <button class="filter-chip" type="button">🇺🇸 American</button>
+      <button class="filter-chip" type="button">🇬🇷 Greek</button>
+      <button class="filter-chip" type="button">🇪🇸 Spanish</button>
+    </div>
+
+    <div class="category-bar" aria-label="Recipe categories">
+      <span class="cat-label">Category</span>
+      <button class="cat-chip active" type="button">Starter</button>
+      <button class="cat-chip" type="button">Chicken</button>
+      <button class="cat-chip" type="button">Dessert</button>
+      <button class="cat-chip" type="button">Seafood</button>
+      <button class="cat-chip" type="button">Vegetarian</button>
+    </div>
+
+    <main>
+      <div class="section-header">
+        <div class="section-title">
+          Featured ideas <span class="section-count">3 starter cards</span>
+        </div>
+        <div class="header-controls">
+          <select class="sort-select" aria-label="Sort recipes">
+            <option>Sort: Default</option>
+            <option>A → Z</option>
+            <option>Z → A</option>
+          </select>
+          <div class="view-toggle" aria-label="View options">
+            <button class="view-btn active" type="button" title="Grid view">⊞</button>
+            <button class="view-btn" type="button" title="List view">☰</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="recipe-grid" id="recipeGrid">
+        <article class="recipe-card">
+          <div class="card-img-wrap pasta-card"><span>🍝</span></div>
+          <div class="card-body">
+            <p class="card-kicker">Italian inspiration</p>
+            <h2 class="card-title">Creamy Pasta Night</h2>
+            <p class="card-desc">
+              A placeholder card for the first layout milestone. Live recipe
+              data will be connected in the next phase.
+            </p>
+            <div class="card-meta">
+              <span>Italian</span><span>Pasta</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="recipe-card">
+          <div class="card-img-wrap curry-card"><span>🍛</span></div>
+          <div class="card-body">
+            <p class="card-kicker">Comfort cooking</p>
+            <h2 class="card-title">Golden Curry Bowl</h2>
+            <p class="card-desc">
+              Early card structure for cuisine browsing, favorites, and modal
+              recipe details coming in later commits.
+            </p>
+            <div class="card-meta">
+              <span>Indian</span><span>Main</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="recipe-card">
+          <div class="card-img-wrap salmon-card"><span>🐟</span></div>
+          <div class="card-body">
+            <p class="card-kicker">Fresh picks</p>
+            <h2 class="card-title">Citrus Salmon Plate</h2>
+            <p class="card-desc">
+              A simple starter preview so the interface has shape before the
+              external API is wired in.
+            </p>
+            <div class="card-meta">
+              <span>Seafood</span><span>Dinner</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </main>
+
+    <div class="attribution">
+      Recipe data by
+      <a href="https://www.themealdb.com" target="_blank" rel="noreferrer">
+        TheMealDB
+      </a>
+      - free open recipe API
+    </div>
+
+    <div class="info-overlay" id="infoOverlay" role="dialog" aria-modal="true">
+      <div class="info-popup">
+        <button class="info-close" type="button" id="infoCloseBtn" aria-label="Close">
+          ×
+        </button>
+        <div class="info-badge">Savor</div>
+        <h2>Advanced Recipe Finder</h2>
+        <p>
+          Savor helps you search real meals, browse cuisines, save favorites,
+          plan weekly dishes, and turn recipes into smart shopping lists.
+        </p>
+        <div class="info-grid">
+          <div>
+            <strong>Search</strong>
+            <span>Find dishes by name, category, cuisine, or ingredient.</span>
+          </div>
+          <div>
+            <strong>Cook</strong>
+            <span>Open recipe details, ingredients, instructions, and ratings.</span>
+          </div>
+          <div>
+            <strong>Plan</strong>
+            <span>Build a meal plan and generate a shopping list from it.</span>
+          </div>
+        </div>
+        <button class="info-primary" type="button" id="infoStartBtn">
+          Start exploring
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
