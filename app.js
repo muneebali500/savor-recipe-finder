@@ -1,6 +1,41 @@
+const API_BASE = "https://www.themealdb.com/api/json/v1/1";
+
+const starterMeals = [
+  {
+    idMeal: "starter-pasta",
+    strMeal: "Creamy Pasta Night",
+    strArea: "Italian",
+    strCategory: "Pasta",
+    strMealThumb: "",
+    description:
+      "A warm starter idea while the live recipe search waits for your first keyword.",
+  },
+  {
+    idMeal: "starter-curry",
+    strMeal: "Golden Curry Bowl",
+    strArea: "Indian",
+    strCategory: "Main",
+    strMealThumb: "",
+    description:
+      "A simple preview card showing how cuisine browsing will feel in the full app.",
+  },
+  {
+    idMeal: "starter-salmon",
+    strMeal: "Citrus Salmon Plate",
+    strArea: "Seafood",
+    strCategory: "Dinner",
+    strMealThumb: "",
+    description:
+      "A fresh recipe-card layout that can now be replaced by live API results.",
+  },
+];
+
 const state = {
   ingredients: [],
+  meals: [...starterMeals],
   theme: localStorage.getItem("savor_theme") || "light",
+  lastQuery: "",
+  loading: false,
 };
 
 const elements = {
@@ -19,12 +54,21 @@ const elements = {
   addIngredientBtn: document.getElementById("addIngredientBtn"),
   ingredientSearchBtn: document.getElementById("ingredientSearchBtn"),
   ingrTags: document.getElementById("ingrTags"),
+  recipeGrid: document.getElementById("recipeGrid"),
+  loader: document.getElementById("loader"),
+  emptyState: document.getElementById("emptyState"),
+  sectionTitle: document.getElementById("sectionTitle"),
+  resultCount: document.getElementById("resultCount"),
   toast: document.getElementById("toast"),
 };
 
 function init() {
   applySavedTheme();
   bindEvents();
+  renderRecipes(starterMeals, {
+    title: "Featured ideas",
+    countLabel: "3 starter cards",
+  });
   openInfoPopup();
 }
 
@@ -155,15 +199,148 @@ function renderIngredientTags() {
   });
 }
 
-function startSearch() {
+async function startSearch() {
   const query = elements.searchInput.value.trim();
 
-  if (!query) {
-    showToast("Enter a recipe name to search.");
+  if (!query || state.loading) {
+    if (!query) showToast("Enter a recipe name to search.");
     return;
   }
 
-  showToast(`Search UI ready for "${query}". API results arrive in Day 2.`);
+  state.lastQuery = query;
+  setLoading(true);
+
+  try {
+    const meals = await searchRecipes(query);
+    state.meals = meals;
+    renderRecipes(meals, {
+      title: `Results for "${query}"`,
+      countLabel: `${meals.length} ${meals.length === 1 ? "recipe" : "recipes"}`,
+    });
+
+    if (!meals.length) {
+      showToast("No matching recipes found.");
+    }
+  } catch (error) {
+    renderRecipes([], {
+      title: "Search unavailable",
+      countLabel: "network error",
+    });
+    showToast("Could not reach TheMealDB. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function searchRecipes(query) {
+  const response = await fetch(
+    `${API_BASE}/search.php?s=${encodeURIComponent(query)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Recipe search failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.meals || [];
+}
+
+function renderRecipes(meals, options = {}) {
+  elements.recipeGrid.innerHTML = "";
+  elements.emptyState.hidden = meals.length > 0;
+  elements.sectionTitle.firstChild.textContent = options.title || "Recipes";
+  elements.resultCount.textContent = options.countLabel || "";
+
+  meals.forEach((meal) => {
+    elements.recipeGrid.appendChild(createRecipeCard(meal));
+  });
+}
+
+function createRecipeCard(meal) {
+  const card = document.createElement("article");
+  card.className = "recipe-card";
+
+  const imageWrap = document.createElement("div");
+  imageWrap.className = "card-img-wrap";
+
+  if (meal.strMealThumb) {
+    const image = document.createElement("img");
+    image.src = meal.strMealThumb;
+    image.alt = meal.strMeal;
+    image.loading = "lazy";
+    imageWrap.appendChild(image);
+  } else {
+    const fallback = document.createElement("span");
+    fallback.className = "emoji-fallback";
+    fallback.textContent = getRecipeEmoji(meal);
+    imageWrap.appendChild(fallback);
+  }
+
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  const kicker = document.createElement("p");
+  kicker.className = "card-kicker";
+  kicker.textContent = meal.strArea || "Recipe idea";
+
+  const title = document.createElement("h2");
+  title.className = "card-title";
+  title.textContent = meal.strMeal;
+
+  const desc = document.createElement("p");
+  desc.className = "card-desc";
+  desc.textContent = buildRecipeSummary(meal);
+
+  const meta = document.createElement("div");
+  meta.className = "card-meta";
+  [meal.strArea, meal.strCategory].filter(Boolean).forEach((item) => {
+    const pill = document.createElement("span");
+    pill.textContent = item;
+    meta.appendChild(pill);
+  });
+
+  const action = document.createElement("button");
+  action.className = "card-action";
+  action.type = "button";
+  action.textContent = "View recipe";
+  action.addEventListener("click", () => {
+    showToast("Recipe details modal arrives in Day 3.");
+  });
+
+  body.append(kicker, title, desc, meta, action);
+  card.append(imageWrap, body);
+
+  return card;
+}
+
+function buildRecipeSummary(meal) {
+  if (meal.description) return meal.description;
+
+  const category = meal.strCategory
+    ? `${meal.strCategory.toLowerCase()} recipe`
+    : "recipe";
+  const area = meal.strArea ? ` from ${meal.strArea}` : "";
+  return `A ${category}${area}. Open the detail view in the next milestone for ingredients and steps.`;
+}
+
+function getRecipeEmoji(meal) {
+  const text = `${meal.strMeal || ""} ${meal.strCategory || ""}`.toLowerCase();
+
+  if (text.includes("pasta") || text.includes("spaghetti")) return "🍝";
+  if (text.includes("taco") || text.includes("burrito")) return "🌮";
+  if (text.includes("curry") || text.includes("tikka")) return "🍛";
+  if (text.includes("salmon") || text.includes("fish")) return "🐟";
+  if (text.includes("cake") || text.includes("dessert")) return "🍰";
+  if (text.includes("chicken")) return "🍗";
+  return "🍽️";
+}
+
+function setLoading(isLoading) {
+  state.loading = isLoading;
+  elements.loader.hidden = !isLoading;
+  elements.recipeGrid.hidden = isLoading;
+  elements.searchBtn.disabled = isLoading;
+  elements.searchBtn.textContent = isLoading ? "Searching..." : "Search";
 }
 
 function quickSearch(term) {
@@ -172,7 +349,7 @@ function quickSearch(term) {
 }
 
 function loadRandom() {
-  showToast("Random recipe loading will be connected with TheMealDB next.");
+  showToast("Random recipe loading will be connected in Day 3.");
 }
 
 function searchByIngredients() {

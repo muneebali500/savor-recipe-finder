@@ -148,15 +148,15 @@
     </div>
 
     <main>
-      <div class="section-header">
-        <div class="section-title">
-          Featured ideas <span class="section-count">3 starter cards</span>
+      <div class="section-header" id="sectionHeader">
+        <div class="section-title" id="sectionTitle">
+          Featured ideas <span class="section-count" id="resultCount"></span>
         </div>
         <div class="header-controls">
-          <select class="sort-select" aria-label="Sort recipes">
-            <option>Sort: Default</option>
-            <option>A → Z</option>
-            <option>Z → A</option>
+          <select class="sort-select" id="sortSelect" aria-label="Sort recipes">
+            <option value="default">Sort: Default</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
           </select>
           <div class="view-toggle" aria-label="View options">
             <button class="view-btn active" type="button" title="Grid view">⊞</button>
@@ -165,51 +165,19 @@
         </div>
       </div>
 
-      <div class="recipe-grid" id="recipeGrid">
-        <article class="recipe-card">
-          <div class="card-img-wrap pasta-card"><span>🍝</span></div>
-          <div class="card-body">
-            <p class="card-kicker">Italian inspiration</p>
-            <h2 class="card-title">Creamy Pasta Night</h2>
-            <p class="card-desc">
-              A placeholder card for the first layout milestone. Live recipe
-              data will be connected in the next phase.
-            </p>
-            <div class="card-meta">
-              <span>Italian</span><span>Pasta</span>
-            </div>
-          </div>
-        </article>
+      <div class="recipe-grid" id="recipeGrid"></div>
 
-        <article class="recipe-card">
-          <div class="card-img-wrap curry-card"><span>🍛</span></div>
-          <div class="card-body">
-            <p class="card-kicker">Comfort cooking</p>
-            <h2 class="card-title">Golden Curry Bowl</h2>
-            <p class="card-desc">
-              Early card structure for cuisine browsing, favorites, and modal
-              recipe details coming in later commits.
-            </p>
-            <div class="card-meta">
-              <span>Indian</span><span>Main</span>
-            </div>
-          </div>
-        </article>
+      <div class="loader" id="loader" hidden>
+        <div class="spinner"></div>
+        <span>Finding recipes...</span>
+      </div>
 
-        <article class="recipe-card">
-          <div class="card-img-wrap salmon-card"><span>🐟</span></div>
-          <div class="card-body">
-            <p class="card-kicker">Fresh picks</p>
-            <h2 class="card-title">Citrus Salmon Plate</h2>
-            <p class="card-desc">
-              A simple starter preview so the interface has shape before the
-              external API is wired in.
-            </p>
-            <div class="card-meta">
-              <span>Seafood</span><span>Dinner</span>
-            </div>
-          </div>
-        </article>
+      <div class="empty-state" id="emptyState" hidden>
+        <div class="empty-icon">🍽️</div>
+        <h3>No recipes found</h3>
+        <p>
+          Try another keyword such as pasta, chicken, curry, tacos, or dessert.
+        </p>
       </div>
     </main>
 

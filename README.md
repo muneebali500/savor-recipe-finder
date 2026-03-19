@@ -21,6 +21,14 @@ portfolio visitors what the app does.
 - Added basic theme toggling, ingredient tag UI, quick-search UI, and toast
   feedback for interactions that will be connected to live data later.
 
+## Day 2 Scope
+
+- Connected the recipe search form and quick-search chips to TheMealDB.
+- Replaced static starter cards with JavaScript-rendered recipe cards.
+- Added loading, no-results, and network-error feedback.
+- Displayed recipe thumbnails, cuisine/category metadata, and compact result
+  summaries.
+
 ## Planned Milestones
 
 1. Project scaffold, separated files, responsive interface, and info popup.
