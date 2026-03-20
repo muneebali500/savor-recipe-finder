@@ -29,6 +29,15 @@ portfolio visitors what the app does.
 - Displayed recipe thumbnails, cuisine/category metadata, and compact result
   summaries.
 
+## Day 3 Scope
+
+- Added a full recipe detail modal with image header, cuisine/category stats,
+  tags, ingredients, instructions, and external recipe links.
+- Connected each result card's view action to the detail modal.
+- Added random recipe loading from TheMealDB and opened the random result in the
+  modal.
+- Added Escape-key and backdrop closing behavior for recipe details.
+
 ## Planned Milestones
 
 1. Project scaffold, separated files, responsive interface, and info popup.

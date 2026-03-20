@@ -7,6 +7,8 @@ const starterMeals = [
     strArea: "Italian",
     strCategory: "Pasta",
     strMealThumb: "",
+    strInstructions:
+      "Boil pasta until tender. Warm cream, garlic, and parmesan in a pan. Toss the pasta through the sauce and finish with black pepper.",
     description:
       "A warm starter idea while the live recipe search waits for your first keyword.",
   },
@@ -16,6 +18,8 @@ const starterMeals = [
     strArea: "Indian",
     strCategory: "Main",
     strMealThumb: "",
+    strInstructions:
+      "Toast spices in oil. Add onions, tomatoes, and stock. Simmer until rich, then serve with rice and fresh herbs.",
     description:
       "A simple preview card showing how cuisine browsing will feel in the full app.",
   },
@@ -25,6 +29,8 @@ const starterMeals = [
     strArea: "Seafood",
     strCategory: "Dinner",
     strMealThumb: "",
+    strInstructions:
+      "Season salmon with citrus zest and salt. Sear until golden. Serve with herbs, greens, and a squeeze of lemon.",
     description:
       "A fresh recipe-card layout that can now be replaced by live API results.",
   },
@@ -36,6 +42,7 @@ const state = {
   theme: localStorage.getItem("savor_theme") || "light",
   lastQuery: "",
   loading: false,
+  currentMeal: null,
 };
 
 const elements = {
@@ -59,6 +66,18 @@ const elements = {
   emptyState: document.getElementById("emptyState"),
   sectionTitle: document.getElementById("sectionTitle"),
   resultCount: document.getElementById("resultCount"),
+  recipeModal: document.getElementById("recipeModal"),
+  modalHero: document.getElementById("modalHero"),
+  modalCloseBtn: document.getElementById("modalCloseBtn"),
+  modalCuisine: document.getElementById("modalCuisine"),
+  modalTitle: document.getElementById("modalTitle"),
+  modalTags: document.getElementById("modalTags"),
+  modalArea: document.getElementById("modalArea"),
+  modalCategory: document.getElementById("modalCategory"),
+  modalIngredientCount: document.getElementById("modalIngredientCount"),
+  modalIngredients: document.getElementById("modalIngredients"),
+  modalSteps: document.getElementById("modalSteps"),
+  modalLinks: document.getElementById("modalLinks"),
   toast: document.getElementById("toast"),
 };
 
@@ -84,6 +103,8 @@ function bindEvents() {
   elements.ingrToggleBtn.addEventListener("click", toggleIngredientSearch);
   elements.addIngredientBtn.addEventListener("click", addIngredient);
   elements.ingredientSearchBtn.addEventListener("click", searchByIngredients);
+  elements.modalCloseBtn.addEventListener("click", closeRecipeModal);
+  elements.recipeModal.addEventListener("click", handleRecipeModalClick);
 
   elements.searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -94,6 +115,13 @@ function bindEvents() {
   elements.ingrInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       addIngredient();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeInfoPopup();
+      closeRecipeModal();
     }
   });
 
@@ -136,7 +164,9 @@ function openInfoPopup() {
 
 function closeInfoPopup() {
   elements.infoOverlay.classList.remove("open");
-  document.body.style.overflow = "";
+  if (!elements.recipeModal.classList.contains("open")) {
+    document.body.style.overflow = "";
+  }
 }
 
 function handleInfoOverlayClick(event) {
@@ -208,7 +238,7 @@ async function startSearch() {
   }
 
   state.lastQuery = query;
-  setLoading(true);
+  setLoading(true, "Searching...");
 
   try {
     const meals = await searchRecipes(query);
@@ -243,6 +273,28 @@ async function searchRecipes(query) {
 
   const data = await response.json();
   return data.meals || [];
+}
+
+async function fetchRandomRecipe() {
+  const response = await fetch(`${API_BASE}/random.php`);
+
+  if (!response.ok) {
+    throw new Error(`Random recipe failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.meals ? data.meals[0] : null;
+}
+
+async function fetchRecipeById(id) {
+  const response = await fetch(`${API_BASE}/lookup.php?i=${id}`);
+
+  if (!response.ok) {
+    throw new Error(`Recipe lookup failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.meals ? data.meals[0] : null;
 }
 
 function renderRecipes(meals, options = {}) {
@@ -303,9 +355,7 @@ function createRecipeCard(meal) {
   action.className = "card-action";
   action.type = "button";
   action.textContent = "View recipe";
-  action.addEventListener("click", () => {
-    showToast("Recipe details modal arrives in Day 3.");
-  });
+  action.addEventListener("click", () => openRecipeModal(meal));
 
   body.append(kicker, title, desc, meta, action);
   card.append(imageWrap, body);
@@ -320,7 +370,197 @@ function buildRecipeSummary(meal) {
     ? `${meal.strCategory.toLowerCase()} recipe`
     : "recipe";
   const area = meal.strArea ? ` from ${meal.strArea}` : "";
-  return `A ${category}${area}. Open the detail view in the next milestone for ingredients and steps.`;
+  return `A ${category}${area}. Open the detail view for ingredients, steps, and recipe links.`;
+}
+
+async function openRecipeModal(meal) {
+  let fullMeal = meal;
+
+  if (!fullMeal.strInstructions && !String(fullMeal.idMeal).startsWith("starter")) {
+    showToast("Loading recipe details...");
+    fullMeal = await fetchRecipeById(fullMeal.idMeal);
+  }
+
+  if (!fullMeal) {
+    showToast("Recipe details were not available.");
+    return;
+  }
+
+  state.currentMeal = fullMeal;
+  renderRecipeModal(fullMeal);
+  elements.recipeModal.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeRecipeModal() {
+  elements.recipeModal.classList.remove("open");
+  if (!elements.infoOverlay.classList.contains("open")) {
+    document.body.style.overflow = "";
+  }
+}
+
+function handleRecipeModalClick(event) {
+  if (event.target === elements.recipeModal) {
+    closeRecipeModal();
+  }
+}
+
+function renderRecipeModal(meal) {
+  const ingredients = extractIngredients(meal);
+  const steps = parseInstructions(meal.strInstructions);
+
+  renderModalHero(meal);
+  elements.modalCuisine.textContent = meal.strArea
+    ? `${meal.strArea} cuisine`
+    : "Recipe details";
+  elements.modalTitle.textContent = meal.strMeal;
+  elements.modalArea.textContent = meal.strArea || "-";
+  elements.modalCategory.textContent = meal.strCategory || "-";
+  elements.modalIngredientCount.textContent = ingredients.length;
+
+  renderModalTags(meal);
+  renderModalIngredients(ingredients);
+  renderModalSteps(steps);
+  renderModalLinks(meal);
+}
+
+function renderModalHero(meal) {
+  elements.modalHero.querySelector(".modal-preview")?.remove();
+
+  if (meal.strMealThumb) {
+    const image = document.createElement("img");
+    image.className = "modal-preview";
+    image.src = meal.strMealThumb;
+    image.alt = meal.strMeal;
+    elements.modalHero.insertBefore(image, elements.modalCloseBtn);
+    return;
+  }
+
+  const fallback = document.createElement("span");
+  fallback.className = "modal-preview modal-emoji";
+  fallback.textContent = getRecipeEmoji(meal);
+  elements.modalHero.insertBefore(fallback, elements.modalCloseBtn);
+}
+
+function renderModalTags(meal) {
+  elements.modalTags.innerHTML = "";
+  [meal.strArea, meal.strCategory, ...(meal.strTags || "").split(",")]
+    .map((tag) => tag && tag.trim())
+    .filter(Boolean)
+    .slice(0, 6)
+    .forEach((tag) => {
+      const pill = document.createElement("span");
+      pill.textContent = tag;
+      elements.modalTags.appendChild(pill);
+    });
+}
+
+function renderModalIngredients(ingredients) {
+  elements.modalIngredients.innerHTML = "";
+
+  if (!ingredients.length) {
+    const empty = document.createElement("p");
+    empty.className = "card-desc";
+    empty.textContent = "No ingredient list is available for this recipe yet.";
+    elements.modalIngredients.appendChild(empty);
+    return;
+  }
+
+  ingredients.forEach((ingredient) => {
+    const item = document.createElement("div");
+    item.className = "ingredient-item";
+
+    const name = document.createElement("strong");
+    name.textContent = ingredient.name;
+
+    const amount = document.createElement("span");
+    amount.textContent = ingredient.measure || "to taste";
+
+    item.append(name, amount);
+    elements.modalIngredients.appendChild(item);
+  });
+}
+
+function renderModalSteps(steps) {
+  elements.modalSteps.innerHTML = "";
+
+  if (!steps.length) {
+    const item = document.createElement("li");
+    item.textContent = "No step-by-step instructions are available.";
+    elements.modalSteps.appendChild(item);
+    return;
+  }
+
+  steps.forEach((step) => {
+    const item = document.createElement("li");
+    item.textContent = step;
+    elements.modalSteps.appendChild(item);
+  });
+}
+
+function renderModalLinks(meal) {
+  elements.modalLinks.innerHTML = "";
+
+  [
+    { label: "Recipe source", url: meal.strSource },
+    { label: "Watch tutorial", url: meal.strYoutube },
+  ]
+    .filter((link) => link.url)
+    .forEach((link) => {
+      const anchor = document.createElement("a");
+      anchor.href = link.url;
+      anchor.target = "_blank";
+      anchor.rel = "noreferrer";
+      anchor.textContent = link.label;
+      elements.modalLinks.appendChild(anchor);
+    });
+}
+
+function extractIngredients(meal) {
+  const ingredients = [];
+
+  for (let index = 1; index <= 20; index += 1) {
+    const name = meal[`strIngredient${index}`];
+    const measure = meal[`strMeasure${index}`];
+
+    if (name && name.trim()) {
+      ingredients.push({
+        name: name.trim(),
+        measure: measure ? measure.trim() : "",
+      });
+    }
+  }
+
+  if (!ingredients.length && String(meal.idMeal).startsWith("starter")) {
+    return [
+      { name: "Main ingredient", measure: "1 portion" },
+      { name: "Seasoning", measure: "to taste" },
+      { name: "Fresh garnish", measure: "as needed" },
+    ];
+  }
+
+  return ingredients;
+}
+
+function parseInstructions(instructions = "") {
+  if (!instructions.trim()) return [];
+
+  const lineSteps = instructions
+    .split(/\r?\n/)
+    .map((step) => step.trim())
+    .filter((step) => step.length > 4);
+
+  const steps =
+    lineSteps.length > 1
+      ? lineSteps
+      : instructions
+          .split(/(?<=[.!?])\s+/)
+          .map((step) => step.trim())
+          .filter((step) => step.length > 5);
+
+  return steps
+    .map((step) => step.replace(/^(step\s*)?\d+[\.\):\-]\s*/i, ""))
+    .slice(0, 12);
 }
 
 function getRecipeEmoji(meal) {
@@ -335,12 +575,13 @@ function getRecipeEmoji(meal) {
   return "🍽️";
 }
 
-function setLoading(isLoading) {
+function setLoading(isLoading, label = "Searching...") {
   state.loading = isLoading;
   elements.loader.hidden = !isLoading;
   elements.recipeGrid.hidden = isLoading;
   elements.searchBtn.disabled = isLoading;
-  elements.searchBtn.textContent = isLoading ? "Searching..." : "Search";
+  elements.randomBtn.disabled = isLoading;
+  elements.searchBtn.textContent = isLoading ? label : "Search";
 }
 
 function quickSearch(term) {
@@ -348,8 +589,30 @@ function quickSearch(term) {
   startSearch();
 }
 
-function loadRandom() {
-  showToast("Random recipe loading will be connected in Day 3.");
+async function loadRandom() {
+  if (state.loading) return;
+
+  setLoading(true, "Loading...");
+
+  try {
+    const meal = await fetchRandomRecipe();
+
+    if (!meal) {
+      showToast("No random recipe was returned.");
+      return;
+    }
+
+    state.meals = [meal];
+    renderRecipes([meal], {
+      title: "Random pick",
+      countLabel: "1 recipe",
+    });
+    openRecipeModal(meal);
+  } catch (error) {
+    showToast("Could not load a random recipe.");
+  } finally {
+    setLoading(false);
+  }
 }
 
 function searchByIngredients() {

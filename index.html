@@ -189,6 +189,49 @@
       - free open recipe API
     </div>
 
+    <div class="modal-overlay" id="recipeModal" role="dialog" aria-modal="true">
+      <article class="recipe-modal">
+        <div class="modal-hero" id="modalHero">
+          <button
+            class="modal-close"
+            type="button"
+            id="modalCloseBtn"
+            aria-label="Close recipe details"
+          >
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-cuisine" id="modalCuisine"></p>
+          <h2 class="modal-title" id="modalTitle"></h2>
+          <div class="modal-tags" id="modalTags"></div>
+
+          <div class="modal-stats">
+            <div>
+              <strong id="modalArea">-</strong>
+              <span>Cuisine</span>
+            </div>
+            <div>
+              <strong id="modalCategory">-</strong>
+              <span>Category</span>
+            </div>
+            <div>
+              <strong id="modalIngredientCount">0</strong>
+              <span>Ingredients</span>
+            </div>
+          </div>
+
+          <h3 class="modal-section-title">Ingredients</h3>
+          <div class="ingredient-list" id="modalIngredients"></div>
+
+          <h3 class="modal-section-title">Instructions</h3>
+          <ol class="step-list" id="modalSteps"></ol>
+
+          <div class="modal-links" id="modalLinks"></div>
+        </div>
+      </article>
+    </div>
+
     <div class="info-overlay" id="infoOverlay" role="dialog" aria-modal="true">
       <div class="info-popup">
         <button class="info-close" type="button" id="infoCloseBtn" aria-label="Close">
