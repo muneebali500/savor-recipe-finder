@@ -472,6 +472,29 @@ main {
   gap: 22px;
 }
 
+.recipe-grid.list-view {
+  grid-template-columns: 1fr;
+}
+
+.recipe-grid.list-view .recipe-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 32%) 1fr;
+}
+
+.recipe-grid.list-view .card-img-wrap {
+  height: 100%;
+  min-height: 240px;
+}
+
+.recipe-grid.list-view .card-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.recipe-grid.list-view .card-action {
+  margin-top: auto;
+}
+
 .recipe-card {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -1032,6 +1055,10 @@ main {
   .ingredient-list,
   .modal-stats,
   .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-grid.list-view .recipe-card {
     grid-template-columns: 1fr;
   }
 

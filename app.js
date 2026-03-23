@@ -36,6 +36,8 @@ const starterMeals = [
   },
 ];
 
+const fallbackCategories = ["Beef", "Chicken", "Dessert", "Pasta", "Seafood", "Vegetarian"];
+
 const state = {
   ingredients: [],
   meals: [...starterMeals],
@@ -43,6 +45,12 @@ const state = {
   lastQuery: "",
   loading: false,
   currentMeal: null,
+  activeArea: "",
+  activeCategory: "",
+  sort: "default",
+  currentView: "grid",
+  currentTitle: "Featured ideas",
+  currentCountLabel: "3 starter cards",
 };
 
 const elements = {
@@ -61,11 +69,15 @@ const elements = {
   addIngredientBtn: document.getElementById("addIngredientBtn"),
   ingredientSearchBtn: document.getElementById("ingredientSearchBtn"),
   ingrTags: document.getElementById("ingrTags"),
+  categoryBar: document.getElementById("categoryBar"),
   recipeGrid: document.getElementById("recipeGrid"),
   loader: document.getElementById("loader"),
   emptyState: document.getElementById("emptyState"),
   sectionTitle: document.getElementById("sectionTitle"),
   resultCount: document.getElementById("resultCount"),
+  sortSelect: document.getElementById("sortSelect"),
+  gridViewBtn: document.getElementById("gridViewBtn"),
+  listViewBtn: document.getElementById("listViewBtn"),
   recipeModal: document.getElementById("recipeModal"),
   modalHero: document.getElementById("modalHero"),
   modalCloseBtn: document.getElementById("modalCloseBtn"),
@@ -84,6 +96,8 @@ const elements = {
 function init() {
   applySavedTheme();
   bindEvents();
+  renderCategoryButtons(fallbackCategories);
+  loadCategories();
   renderRecipes(starterMeals, {
     title: "Featured ideas",
     countLabel: "3 starter cards",
@@ -105,6 +119,9 @@ function bindEvents() {
   elements.ingredientSearchBtn.addEventListener("click", searchByIngredients);
   elements.modalCloseBtn.addEventListener("click", closeRecipeModal);
   elements.recipeModal.addEventListener("click", handleRecipeModalClick);
+  elements.sortSelect.addEventListener("change", sortRecipes);
+  elements.gridViewBtn.addEventListener("click", () => setView("grid"));
+  elements.listViewBtn.addEventListener("click", () => setView("list"));
 
   elements.searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -129,8 +146,15 @@ function bindEvents() {
     button.addEventListener("click", () => quickSearch(button.dataset.search));
   });
 
-  document.querySelectorAll(".filter-chip, .cat-chip").forEach((button) => {
-    button.addEventListener("click", () => toggleActiveChip(button));
+  document.querySelectorAll(".filter-chip").forEach((button) => {
+    button.addEventListener("click", () => searchByArea(button));
+  });
+
+  elements.categoryBar.addEventListener("click", (event) => {
+    const button = event.target.closest(".cat-chip");
+    if (button) {
+      searchByCategory(button);
+    }
   });
 }
 
@@ -237,26 +261,102 @@ async function startSearch() {
     return;
   }
 
+  clearFilterSelection();
   state.lastQuery = query;
   setLoading(true, "Searching...");
 
   try {
     const meals = await searchRecipes(query);
-    state.meals = meals;
-    renderRecipes(meals, {
+    setResults(meals, {
       title: `Results for "${query}"`,
-      countLabel: `${meals.length} ${meals.length === 1 ? "recipe" : "recipes"}`,
+      countLabel: buildCountLabel(meals.length),
     });
 
     if (!meals.length) {
       showToast("No matching recipes found.");
     }
   } catch (error) {
-    renderRecipes([], {
+    setResults([], {
       title: "Search unavailable",
       countLabel: "network error",
     });
     showToast("Could not reach TheMealDB. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function searchByArea(button) {
+  if (state.loading) return;
+
+  const area = button.dataset.area;
+  state.activeArea = area;
+  state.activeCategory = "";
+  setActiveButton(".filter-chip", button);
+  setActiveButton(".cat-chip", null);
+  setLoading(true, "Filtering...");
+
+  try {
+    const meals = await fetchFilteredMeals("a", area, { strArea: area });
+    setResults(meals, {
+      title: `${area} recipes`,
+      countLabel: buildCountLabel(meals.length),
+    });
+  } catch (error) {
+    showToast(`Could not load ${area} recipes.`);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function searchByCategory(button) {
+  if (state.loading) return;
+
+  const category = button.dataset.category;
+  state.activeCategory = category;
+  state.activeArea = "";
+  setActiveButton(".cat-chip", button);
+  setActiveButton(".filter-chip", null);
+  setLoading(true, "Browsing...");
+
+  try {
+    const meals = await fetchFilteredMeals("c", category, {
+      strCategory: category,
+    });
+    setResults(meals, {
+      title: `${category} recipes`,
+      countLabel: buildCountLabel(meals.length),
+    });
+  } catch (error) {
+    showToast(`Could not load ${category} recipes.`);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function searchByIngredients() {
+  if (!state.ingredients.length) {
+    showToast("Add at least one ingredient first.");
+    return;
+  }
+
+  if (state.loading) return;
+
+  clearFilterSelection();
+  setLoading(true, "Matching...");
+
+  try {
+    const meals = await fetchMealsByIngredients(state.ingredients);
+    setResults(meals, {
+      title: `Recipes with ${state.ingredients.join(", ")}`,
+      countLabel: buildCountLabel(meals.length),
+    });
+
+    if (!meals.length) {
+      showToast("No recipes matched all selected ingredients.");
+    }
+  } catch (error) {
+    showToast("Could not search by ingredients.");
   } finally {
     setLoading(false);
   }
@@ -273,6 +373,36 @@ async function searchRecipes(query) {
 
   const data = await response.json();
   return data.meals || [];
+}
+
+async function fetchFilteredMeals(type, value, extra = {}) {
+  const response = await fetch(
+    `${API_BASE}/filter.php?${type}=${encodeURIComponent(value)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Filter request failed with ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.meals || []).map((meal) => ({ ...meal, ...extra }));
+}
+
+async function fetchMealsByIngredients(ingredients) {
+  const lists = await Promise.all(
+    ingredients.map((ingredient) => fetchFilteredMeals("i", ingredient)),
+  );
+
+  if (!lists.length) return [];
+
+  const [firstList, ...rest] = lists;
+  const commonIds = rest.reduce((ids, list) => {
+    const nextIds = new Set(list.map((meal) => meal.idMeal));
+    return ids.filter((id) => nextIds.has(id));
+  }, firstList.map((meal) => meal.idMeal));
+
+  const lookup = new Map(firstList.map((meal) => [meal.idMeal, meal]));
+  return commonIds.map((id) => lookup.get(id)).filter(Boolean);
 }
 
 async function fetchRandomRecipe() {
@@ -297,15 +427,90 @@ async function fetchRecipeById(id) {
   return data.meals ? data.meals[0] : null;
 }
 
-function renderRecipes(meals, options = {}) {
+async function loadCategories() {
+  try {
+    const response = await fetch(`${API_BASE}/categories.php`);
+
+    if (!response.ok) {
+      throw new Error(`Category request failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    const categories = (data.categories || []).map((item) => item.strCategory);
+    renderCategoryButtons(categories.length ? categories : fallbackCategories);
+  } catch (error) {
+    renderCategoryButtons(fallbackCategories);
+  }
+}
+
+function renderCategoryButtons(categories) {
+  const label = elements.categoryBar.querySelector(".cat-label");
+  elements.categoryBar.innerHTML = "";
+  elements.categoryBar.appendChild(label);
+
+  categories.forEach((category) => {
+    const button = document.createElement("button");
+    button.className = "cat-chip";
+    button.type = "button";
+    button.dataset.category = category;
+    button.textContent = category;
+    elements.categoryBar.appendChild(button);
+  });
+}
+
+function setResults(meals, options = {}) {
+  state.meals = meals;
+  state.currentTitle = options.title || "Recipes";
+  state.currentCountLabel = options.countLabel || buildCountLabel(meals.length);
+  renderRecipes();
+}
+
+function renderRecipes() {
+  const meals = getSortedMeals(state.meals);
+
   elements.recipeGrid.innerHTML = "";
   elements.emptyState.hidden = meals.length > 0;
-  elements.sectionTitle.firstChild.textContent = options.title || "Recipes";
-  elements.resultCount.textContent = options.countLabel || "";
+  updateSectionTitle(state.currentTitle, state.currentCountLabel);
+  applyViewClass();
 
   meals.forEach((meal) => {
     elements.recipeGrid.appendChild(createRecipeCard(meal));
   });
+}
+
+function updateSectionTitle(title, countLabel) {
+  elements.sectionTitle.childNodes[0].nodeValue = `${title} `;
+  elements.resultCount.textContent = countLabel;
+}
+
+function getSortedMeals(meals) {
+  const sortedMeals = [...meals];
+
+  if (state.sort === "az") {
+    sortedMeals.sort((a, b) => a.strMeal.localeCompare(b.strMeal));
+  }
+
+  if (state.sort === "za") {
+    sortedMeals.sort((a, b) => b.strMeal.localeCompare(a.strMeal));
+  }
+
+  return sortedMeals;
+}
+
+function sortRecipes() {
+  state.sort = elements.sortSelect.value;
+  renderRecipes();
+}
+
+function setView(view) {
+  state.currentView = view;
+  elements.gridViewBtn.classList.toggle("active", view === "grid");
+  elements.listViewBtn.classList.toggle("active", view === "list");
+  applyViewClass();
+}
+
+function applyViewClass() {
+  elements.recipeGrid.classList.toggle("list-view", state.currentView === "list");
 }
 
 function createRecipeCard(meal) {
@@ -333,7 +538,8 @@ function createRecipeCard(meal) {
 
   const kicker = document.createElement("p");
   kicker.className = "card-kicker";
-  kicker.textContent = meal.strArea || "Recipe idea";
+  kicker.textContent =
+    meal.strArea || state.activeArea || meal.strCategory || state.activeCategory || "Recipe idea";
 
   const title = document.createElement("h2");
   title.className = "card-title";
@@ -345,11 +551,16 @@ function createRecipeCard(meal) {
 
   const meta = document.createElement("div");
   meta.className = "card-meta";
-  [meal.strArea, meal.strCategory].filter(Boolean).forEach((item) => {
-    const pill = document.createElement("span");
-    pill.textContent = item;
-    meta.appendChild(pill);
-  });
+  [
+    meal.strArea || state.activeArea,
+    meal.strCategory || state.activeCategory,
+  ]
+    .filter(Boolean)
+    .forEach((item) => {
+      const pill = document.createElement("span");
+      pill.textContent = item;
+      meta.appendChild(pill);
+    });
 
   const action = document.createElement("button");
   action.className = "card-action";
@@ -366,11 +577,22 @@ function createRecipeCard(meal) {
 function buildRecipeSummary(meal) {
   if (meal.description) return meal.description;
 
-  const category = meal.strCategory
-    ? `${meal.strCategory.toLowerCase()} recipe`
-    : "recipe";
-  const area = meal.strArea ? ` from ${meal.strArea}` : "";
-  return `A ${category}${area}. Open the detail view for ingredients, steps, and recipe links.`;
+  const category = meal.strCategory || state.activeCategory;
+  const area = meal.strArea || state.activeArea;
+
+  if (category && area) {
+    return `A ${category.toLowerCase()} recipe from ${area}. Open the detail view for ingredients, steps, and links.`;
+  }
+
+  if (category) {
+    return `A ${category.toLowerCase()} recipe. Open the detail view for ingredients, steps, and links.`;
+  }
+
+  if (area) {
+    return `A recipe from ${area}. Open the detail view for ingredients, steps, and links.`;
+  }
+
+  return "Open the detail view for ingredients, steps, and recipe links.";
 }
 
 async function openRecipeModal(meal) {
@@ -563,6 +785,23 @@ function parseInstructions(instructions = "") {
     .slice(0, 12);
 }
 
+function buildCountLabel(count) {
+  return `${count} ${count === 1 ? "recipe" : "recipes"}`;
+}
+
+function setActiveButton(selector, activeButton) {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.classList.toggle("active", button === activeButton);
+  });
+}
+
+function clearFilterSelection() {
+  state.activeArea = "";
+  state.activeCategory = "";
+  setActiveButton(".filter-chip", null);
+  setActiveButton(".cat-chip", null);
+}
+
 function getRecipeEmoji(meal) {
   const text = `${meal.strMeal || ""} ${meal.strCategory || ""}`.toLowerCase();
 
@@ -581,6 +820,7 @@ function setLoading(isLoading, label = "Searching...") {
   elements.recipeGrid.hidden = isLoading;
   elements.searchBtn.disabled = isLoading;
   elements.randomBtn.disabled = isLoading;
+  elements.ingredientSearchBtn.disabled = isLoading;
   elements.searchBtn.textContent = isLoading ? label : "Search";
 }
 
@@ -592,6 +832,7 @@ function quickSearch(term) {
 async function loadRandom() {
   if (state.loading) return;
 
+  clearFilterSelection();
   setLoading(true, "Loading...");
 
   try {
@@ -602,8 +843,7 @@ async function loadRandom() {
       return;
     }
 
-    state.meals = [meal];
-    renderRecipes([meal], {
+    setResults([meal], {
       title: "Random pick",
       countLabel: "1 recipe",
     });
@@ -613,25 +853,6 @@ async function loadRandom() {
   } finally {
     setLoading(false);
   }
-}
-
-function searchByIngredients() {
-  if (!state.ingredients.length) {
-    showToast("Add at least one ingredient first.");
-    return;
-  }
-
-  showToast(`Ingredient search queued for ${state.ingredients.join(", ")}.`);
-}
-
-function toggleActiveChip(button) {
-  const group = button.closest(".filters-bar, .category-bar");
-
-  group.querySelectorAll("button").forEach((chip) => {
-    chip.classList.remove("active");
-  });
-
-  button.classList.add("active");
 }
 
 function showToast(message) {

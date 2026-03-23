@@ -38,6 +38,13 @@ portfolio visitors what the app does.
   modal.
 - Added Escape-key and backdrop closing behavior for recipe details.
 
+## Day 4 Scope
+
+- Added live cuisine/area filtering through TheMealDB.
+- Loaded recipe categories from the API and connected category browsing.
+- Added ingredient-based search with multi-ingredient result matching.
+- Added A-Z/Z-A sorting and grid/list view switching for result cards.
+
 ## Planned Milestones
 
 1. Project scaffold, separated files, responsive interface, and info popup.

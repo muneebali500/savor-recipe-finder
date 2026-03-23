@@ -125,26 +125,21 @@
 
     <div class="filters-bar" aria-label="Cuisine filters">
       <span class="filter-label">Area</span>
-      <button class="filter-chip" type="button">🇬🇧 British</button>
-      <button class="filter-chip" type="button">🇮🇹 Italian</button>
-      <button class="filter-chip" type="button">🇲🇽 Mexican</button>
-      <button class="filter-chip" type="button">🇯🇵 Japanese</button>
-      <button class="filter-chip" type="button">🇮🇳 Indian</button>
-      <button class="filter-chip" type="button">🇨🇳 Chinese</button>
-      <button class="filter-chip" type="button">🇫🇷 French</button>
-      <button class="filter-chip" type="button">🇹🇭 Thai</button>
-      <button class="filter-chip" type="button">🇺🇸 American</button>
-      <button class="filter-chip" type="button">🇬🇷 Greek</button>
-      <button class="filter-chip" type="button">🇪🇸 Spanish</button>
+      <button class="filter-chip" type="button" data-area="British">🇬🇧 British</button>
+      <button class="filter-chip" type="button" data-area="Italian">🇮🇹 Italian</button>
+      <button class="filter-chip" type="button" data-area="Mexican">🇲🇽 Mexican</button>
+      <button class="filter-chip" type="button" data-area="Japanese">🇯🇵 Japanese</button>
+      <button class="filter-chip" type="button" data-area="Indian">🇮🇳 Indian</button>
+      <button class="filter-chip" type="button" data-area="Chinese">🇨🇳 Chinese</button>
+      <button class="filter-chip" type="button" data-area="French">🇫🇷 French</button>
+      <button class="filter-chip" type="button" data-area="Thai">🇹🇭 Thai</button>
+      <button class="filter-chip" type="button" data-area="American">🇺🇸 American</button>
+      <button class="filter-chip" type="button" data-area="Greek">🇬🇷 Greek</button>
+      <button class="filter-chip" type="button" data-area="Spanish">🇪🇸 Spanish</button>
     </div>
 
-    <div class="category-bar" aria-label="Recipe categories">
+    <div class="category-bar" id="categoryBar" aria-label="Recipe categories">
       <span class="cat-label">Category</span>
-      <button class="cat-chip active" type="button">Starter</button>
-      <button class="cat-chip" type="button">Chicken</button>
-      <button class="cat-chip" type="button">Dessert</button>
-      <button class="cat-chip" type="button">Seafood</button>
-      <button class="cat-chip" type="button">Vegetarian</button>
     </div>
 
     <main>
@@ -159,8 +154,12 @@
             <option value="za">Z → A</option>
           </select>
           <div class="view-toggle" aria-label="View options">
-            <button class="view-btn active" type="button" title="Grid view">⊞</button>
-            <button class="view-btn" type="button" title="List view">☰</button>
+            <button class="view-btn active" type="button" id="gridViewBtn" title="Grid view">
+              ⊞
+            </button>
+            <button class="view-btn" type="button" id="listViewBtn" title="List view">
+              ☰
+            </button>
           </div>
         </div>
       </div>
