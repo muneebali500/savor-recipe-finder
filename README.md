@@ -45,6 +45,13 @@ portfolio visitors what the app does.
 - Added ingredient-based search with multi-ingredient result matching.
 - Added A-Z/Z-A sorting and grid/list view switching for result cards.
 
+## Day 5 Scope
+
+- Added saved recipes with localStorage persistence.
+- Added a saved-recipes side panel with open, view, and remove actions.
+- Added recipe ratings and personal notes inside the detail modal.
+- Synced saved state, ratings, and notes across recipe cards and modal views.
+
 ## Planned Milestones
 
 1. Project scaffold, separated files, responsive interface, and info popup.

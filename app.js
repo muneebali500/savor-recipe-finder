@@ -41,6 +41,9 @@ const fallbackCategories = ["Beef", "Chicken", "Dessert", "Pasta", "Seafood", "V
 const state = {
   ingredients: [],
   meals: [...starterMeals],
+  favorites: new Map(),
+  ratings: {},
+  notes: {},
   theme: localStorage.getItem("savor_theme") || "light",
   lastQuery: "",
   loading: false,
@@ -55,6 +58,8 @@ const state = {
 
 const elements = {
   logo: document.querySelector(".logo"),
+  savedBtn: document.getElementById("savedBtn"),
+  favCount: document.getElementById("favCount"),
   themeBtn: document.getElementById("themeBtn"),
   infoBtn: document.getElementById("infoBtn"),
   infoOverlay: document.getElementById("infoOverlay"),
@@ -84,20 +89,29 @@ const elements = {
   modalCuisine: document.getElementById("modalCuisine"),
   modalTitle: document.getElementById("modalTitle"),
   modalTags: document.getElementById("modalTags"),
+  modalSaveBtn: document.getElementById("modalSaveBtn"),
+  ratingControl: document.getElementById("ratingControl"),
+  noteInput: document.getElementById("noteInput"),
   modalArea: document.getElementById("modalArea"),
   modalCategory: document.getElementById("modalCategory"),
   modalIngredientCount: document.getElementById("modalIngredientCount"),
   modalIngredients: document.getElementById("modalIngredients"),
   modalSteps: document.getElementById("modalSteps"),
   modalLinks: document.getElementById("modalLinks"),
+  savedOverlay: document.getElementById("savedOverlay"),
+  savedCloseBtn: document.getElementById("savedCloseBtn"),
+  savedList: document.getElementById("savedList"),
+  savedEmpty: document.getElementById("savedEmpty"),
   toast: document.getElementById("toast"),
 };
 
 function init() {
+  hydrateLibrary();
   applySavedTheme();
   bindEvents();
   renderCategoryButtons(fallbackCategories);
   loadCategories();
+  updateFavCount();
   renderRecipes(starterMeals, {
     title: "Featured ideas",
     countLabel: "3 starter cards",
@@ -107,6 +121,7 @@ function init() {
 
 function bindEvents() {
   elements.logo.addEventListener("click", scrollToTop);
+  elements.savedBtn.addEventListener("click", openSavedPanel);
   elements.themeBtn.addEventListener("click", toggleTheme);
   elements.infoBtn.addEventListener("click", openInfoPopup);
   elements.infoCloseBtn.addEventListener("click", closeInfoPopup);
@@ -119,9 +134,29 @@ function bindEvents() {
   elements.ingredientSearchBtn.addEventListener("click", searchByIngredients);
   elements.modalCloseBtn.addEventListener("click", closeRecipeModal);
   elements.recipeModal.addEventListener("click", handleRecipeModalClick);
+  elements.modalSaveBtn.addEventListener("click", toggleCurrentFavorite);
+  elements.savedCloseBtn.addEventListener("click", closeSavedPanel);
+  elements.savedOverlay.addEventListener("click", handleSavedOverlayClick);
   elements.sortSelect.addEventListener("change", sortRecipes);
   elements.gridViewBtn.addEventListener("click", () => setView("grid"));
   elements.listViewBtn.addEventListener("click", () => setView("list"));
+
+  elements.noteInput.addEventListener("input", () => {
+    if (!state.currentMeal) return;
+    state.notes[state.currentMeal.idMeal] = elements.noteInput.value;
+    persistLibrary();
+  });
+
+  elements.ratingControl.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!state.currentMeal) return;
+      state.ratings[state.currentMeal.idMeal] = Number(button.dataset.rating);
+      persistLibrary();
+      renderRating(state.ratings[state.currentMeal.idMeal]);
+      renderRecipes();
+      renderSavedPanel();
+    });
+  });
 
   elements.searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -139,6 +174,7 @@ function bindEvents() {
     if (event.key === "Escape") {
       closeInfoPopup();
       closeRecipeModal();
+      closeSavedPanel();
     }
   });
 
@@ -156,6 +192,33 @@ function bindEvents() {
       searchByCategory(button);
     }
   });
+}
+
+function hydrateLibrary() {
+  const saved = load("savor_favorites", []);
+  state.favorites = new Map(saved.map((meal) => [meal.idMeal, meal]));
+  state.ratings = load("savor_ratings", {});
+  state.notes = load("savor_notes", {});
+}
+
+function persistLibrary() {
+  save("savor_favorites", Array.from(state.favorites.values()));
+  save("savor_ratings", state.ratings);
+  save("savor_notes", state.notes);
+  updateFavCount();
+}
+
+function save(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function load(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    return fallback;
+  }
 }
 
 function applySavedTheme() {
@@ -188,14 +251,39 @@ function openInfoPopup() {
 
 function closeInfoPopup() {
   elements.infoOverlay.classList.remove("open");
-  if (!elements.recipeModal.classList.contains("open")) {
-    document.body.style.overflow = "";
-  }
+  restoreBodyScroll();
 }
 
 function handleInfoOverlayClick(event) {
   if (event.target === elements.infoOverlay) {
     closeInfoPopup();
+  }
+}
+
+function openSavedPanel() {
+  renderSavedPanel();
+  elements.savedOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeSavedPanel() {
+  elements.savedOverlay.classList.remove("open");
+  restoreBodyScroll();
+}
+
+function handleSavedOverlayClick(event) {
+  if (event.target === elements.savedOverlay) {
+    closeSavedPanel();
+  }
+}
+
+function restoreBodyScroll() {
+  const modalOpen = elements.recipeModal.classList.contains("open");
+  const infoOpen = elements.infoOverlay.classList.contains("open");
+  const savedOpen = elements.savedOverlay.classList.contains("open");
+
+  if (!modalOpen && !infoOpen && !savedOpen) {
+    document.body.style.overflow = "";
   }
 }
 
@@ -554,6 +642,7 @@ function createRecipeCard(meal) {
   [
     meal.strArea || state.activeArea,
     meal.strCategory || state.activeCategory,
+    buildRatingLabel(meal.idMeal),
   ]
     .filter(Boolean)
     .forEach((item) => {
@@ -616,9 +705,7 @@ async function openRecipeModal(meal) {
 
 function closeRecipeModal() {
   elements.recipeModal.classList.remove("open");
-  if (!elements.infoOverlay.classList.contains("open")) {
-    document.body.style.overflow = "";
-  }
+  restoreBodyScroll();
 }
 
 function handleRecipeModalClick(event) {
@@ -639,11 +726,14 @@ function renderRecipeModal(meal) {
   elements.modalArea.textContent = meal.strArea || "-";
   elements.modalCategory.textContent = meal.strCategory || "-";
   elements.modalIngredientCount.textContent = ingredients.length;
+  elements.noteInput.value = state.notes[meal.idMeal] || "";
 
   renderModalTags(meal);
   renderModalIngredients(ingredients);
   renderModalSteps(steps);
   renderModalLinks(meal);
+  renderFavoriteState();
+  renderRating(state.ratings[meal.idMeal] || 0);
 }
 
 function renderModalHero(meal) {
@@ -736,6 +826,116 @@ function renderModalLinks(meal) {
       anchor.textContent = link.label;
       elements.modalLinks.appendChild(anchor);
     });
+}
+
+function toggleCurrentFavorite() {
+  if (!state.currentMeal) return;
+
+  const id = state.currentMeal.idMeal;
+
+  if (state.favorites.has(id)) {
+    state.favorites.delete(id);
+    showToast("Removed from saved recipes.");
+  } else {
+    state.favorites.set(id, state.currentMeal);
+    showToast("Saved to your recipes.");
+  }
+
+  persistLibrary();
+  renderFavoriteState();
+  renderRecipes();
+  renderSavedPanel();
+}
+
+function renderFavoriteState() {
+  if (!state.currentMeal) return;
+
+  const saved = state.favorites.has(state.currentMeal.idMeal);
+  elements.modalSaveBtn.classList.toggle("active", saved);
+  elements.modalSaveBtn.textContent = saved ? "♥ Saved recipe" : "♡ Save recipe";
+}
+
+function renderRating(rating) {
+  elements.ratingControl.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.rating) <= rating);
+  });
+}
+
+function buildRatingLabel(id) {
+  const rating = state.ratings[id];
+  return rating ? `${rating}/5 rated` : "";
+}
+
+function updateFavCount() {
+  elements.favCount.textContent = state.favorites.size;
+}
+
+function renderSavedPanel() {
+  const savedMeals = Array.from(state.favorites.values());
+  elements.savedList.innerHTML = "";
+  elements.savedEmpty.hidden = savedMeals.length > 0;
+
+  savedMeals.forEach((meal) => {
+    elements.savedList.appendChild(createSavedItem(meal));
+  });
+}
+
+function createSavedItem(meal) {
+  const item = document.createElement("article");
+  item.className = "saved-item";
+
+  const thumb = document.createElement("div");
+  thumb.className = "saved-thumb";
+
+  if (meal.strMealThumb) {
+    const image = document.createElement("img");
+    image.src = meal.strMealThumb;
+    image.alt = meal.strMeal;
+    thumb.appendChild(image);
+  } else {
+    thumb.textContent = getRecipeEmoji(meal);
+  }
+
+  const info = document.createElement("div");
+  info.className = "saved-info";
+
+  const title = document.createElement("h3");
+  title.textContent = meal.strMeal;
+
+  const meta = document.createElement("p");
+  meta.textContent = [meal.strArea, meal.strCategory, buildRatingLabel(meal.idMeal)]
+    .filter(Boolean)
+    .join(" • ");
+
+  const actions = document.createElement("div");
+  actions.className = "saved-actions";
+
+  const viewBtn = document.createElement("button");
+  viewBtn.type = "button";
+  viewBtn.textContent = "View";
+  viewBtn.addEventListener("click", () => {
+    closeSavedPanel();
+    openRecipeModal(meal);
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.textContent = "Remove";
+  removeBtn.addEventListener("click", () => {
+    state.favorites.delete(meal.idMeal);
+    persistLibrary();
+    renderSavedPanel();
+    renderRecipes();
+    if (state.currentMeal?.idMeal === meal.idMeal) {
+      renderFavoriteState();
+    }
+  });
+
+  actions.append(viewBtn, removeBtn);
+  info.append(title, meta, actions);
+  item.append(thumb, info);
+
+  return item;
 }
 
 function extractIngredients(meal) {

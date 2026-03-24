@@ -29,9 +29,9 @@
         <button class="hdr-btn" type="button">
           <span aria-hidden="true">🛒</span><span>Shopping</span>
         </button>
-        <button class="hdr-btn" type="button">
+        <button class="hdr-btn" type="button" id="savedBtn">
           <span aria-hidden="true">♥</span><span>Saved</span>
-          <span class="fav-count">0</span>
+          <span class="fav-count" id="favCount">0</span>
         </button>
         <button class="theme-btn" type="button" id="infoBtn" title="About Savor">
           i
@@ -205,6 +205,19 @@
           <h2 class="modal-title" id="modalTitle"></h2>
           <div class="modal-tags" id="modalTags"></div>
 
+          <div class="modal-actions">
+            <button class="save-recipe-btn" type="button" id="modalSaveBtn">
+              ♡ Save recipe
+            </button>
+            <div class="rating-control" id="ratingControl" aria-label="Rate recipe">
+              <button type="button" data-rating="1">★</button>
+              <button type="button" data-rating="2">★</button>
+              <button type="button" data-rating="3">★</button>
+              <button type="button" data-rating="4">★</button>
+              <button type="button" data-rating="5">★</button>
+            </div>
+          </div>
+
           <div class="modal-stats">
             <div>
               <strong id="modalArea">-</strong>
@@ -226,9 +239,36 @@
           <h3 class="modal-section-title">Instructions</h3>
           <ol class="step-list" id="modalSteps"></ol>
 
+          <h3 class="modal-section-title">Personal notes</h3>
+          <textarea
+            class="note-input"
+            id="noteInput"
+            rows="4"
+            placeholder="Add serving ideas, changes, or reminders..."
+          ></textarea>
+
           <div class="modal-links" id="modalLinks"></div>
         </div>
       </article>
+    </div>
+
+    <div class="saved-overlay" id="savedOverlay" role="dialog" aria-modal="true">
+      <aside class="saved-panel">
+        <div class="saved-header">
+          <div>
+            <p class="panel-eyebrow">Your collection</p>
+            <h2>Saved Recipes</h2>
+          </div>
+          <button class="panel-close" type="button" id="savedCloseBtn" aria-label="Close saved recipes">
+            ×
+          </button>
+        </div>
+        <div class="saved-list" id="savedList"></div>
+        <div class="saved-empty" id="savedEmpty">
+          <strong>No saved recipes yet</strong>
+          <span>Open a recipe and save it to build your personal cookbook.</span>
+        </div>
+      </aside>
     </div>
 
     <div class="info-overlay" id="infoOverlay" role="dialog" aria-modal="true">
