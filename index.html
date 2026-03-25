@@ -23,11 +23,12 @@
         <button class="hdr-btn" type="button" id="ingrToggleBtn">
           <span aria-hidden="true">🥕</span><span>By Ingredient</span>
         </button>
-        <button class="hdr-btn" type="button">
+        <button class="hdr-btn" type="button" id="plannerBtn">
           <span aria-hidden="true">📅</span><span>Meal Plan</span>
         </button>
-        <button class="hdr-btn" type="button">
+        <button class="hdr-btn" type="button" id="shoppingBtn">
           <span aria-hidden="true">🛒</span><span>Shopping</span>
+          <span class="fav-count" id="shopCount">0</span>
         </button>
         <button class="hdr-btn" type="button" id="savedBtn">
           <span aria-hidden="true">♥</span><span>Saved</span>
@@ -209,6 +210,12 @@
             <button class="save-recipe-btn" type="button" id="modalSaveBtn">
               ♡ Save recipe
             </button>
+            <button class="save-recipe-btn" type="button" id="modalPlanBtn">
+              📅 Add to plan
+            </button>
+            <button class="save-recipe-btn" type="button" id="modalCookBtn">
+              Cook mode
+            </button>
             <div class="rating-control" id="ratingControl" aria-label="Rate recipe">
               <button type="button" data-rating="1">★</button>
               <button type="button" data-rating="2">★</button>
@@ -269,6 +276,76 @@
           <span>Open a recipe and save it to build your personal cookbook.</span>
         </div>
       </aside>
+    </div>
+
+    <div class="planner-overlay" id="plannerOverlay" role="dialog" aria-modal="true">
+      <section class="planner-panel">
+        <div class="saved-header">
+          <div>
+            <p class="panel-eyebrow">Weekly prep</p>
+            <h2>Meal Planner</h2>
+          </div>
+          <button class="panel-close" type="button" id="plannerCloseBtn" aria-label="Close meal planner">
+            ×
+          </button>
+        </div>
+        <div class="planner-grid" id="plannerGrid"></div>
+        <div class="planner-actions">
+          <button class="info-primary" type="button" id="generateShopBtn">
+            Generate shopping list
+          </button>
+          <button class="ghost-btn" type="button" id="clearPlanBtn">Clear plan</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="shopping-overlay" id="shoppingOverlay" role="dialog" aria-modal="true">
+      <aside class="saved-panel">
+        <div class="saved-header">
+          <div>
+            <p class="panel-eyebrow">Prep list</p>
+            <h2>Shopping List</h2>
+          </div>
+          <button class="panel-close" type="button" id="shoppingCloseBtn" aria-label="Close shopping list">
+            ×
+          </button>
+        </div>
+        <div class="shopping-list" id="shoppingList"></div>
+        <div class="saved-empty" id="shoppingEmpty">
+          <strong>Your list is empty</strong>
+          <span>Add recipes to the meal plan, then generate a shopping list.</span>
+        </div>
+        <button class="ghost-btn full-width" type="button" id="clearShoppingBtn">
+          Clear shopping list
+        </button>
+      </aside>
+    </div>
+
+    <div class="cook-overlay" id="cookOverlay" role="dialog" aria-modal="true">
+      <section class="cook-panel">
+        <button class="modal-close" type="button" id="cookCloseBtn" aria-label="Exit cooking mode">
+          ×
+        </button>
+        <p class="panel-eyebrow">Cooking mode</p>
+        <h2 id="cookTitle">Recipe</h2>
+        <div class="cook-progress" id="cookProgress"></div>
+        <p class="cook-step-label" id="cookStepLabel">Step 1</p>
+        <p class="cook-step-text" id="cookStepText"></p>
+
+        <div class="cook-nav">
+          <button class="ghost-btn" type="button" id="cookPrevBtn">Previous</button>
+          <button class="info-primary" type="button" id="cookNextBtn">Next step</button>
+        </div>
+
+        <div class="cook-timer">
+          <strong id="timerDisplay">00:00</strong>
+          <div>
+            <button class="ghost-btn" type="button" id="timerFiveBtn">5 min</button>
+            <button class="ghost-btn" type="button" id="timerStartBtn">Start</button>
+            <button class="ghost-btn" type="button" id="timerResetBtn">Reset</button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div class="info-overlay" id="infoOverlay" role="dialog" aria-modal="true">

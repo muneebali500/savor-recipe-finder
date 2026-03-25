@@ -1,4 +1,6 @@
 const API_BASE = "https://www.themealdb.com/api/json/v1/1";
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 const starterMeals = [
   {
@@ -44,6 +46,8 @@ const state = {
   favorites: new Map(),
   ratings: {},
   notes: {},
+  mealPlan: {},
+  shoppingList: [],
   theme: localStorage.getItem("savor_theme") || "light",
   lastQuery: "",
   loading: false,
@@ -54,12 +58,17 @@ const state = {
   currentView: "grid",
   currentTitle: "Featured ideas",
   currentCountLabel: "3 starter cards",
+  cookSteps: [],
+  cookStep: 0,
 };
 
 const elements = {
   logo: document.querySelector(".logo"),
+  plannerBtn: document.getElementById("plannerBtn"),
+  shoppingBtn: document.getElementById("shoppingBtn"),
   savedBtn: document.getElementById("savedBtn"),
   favCount: document.getElementById("favCount"),
+  shopCount: document.getElementById("shopCount"),
   themeBtn: document.getElementById("themeBtn"),
   infoBtn: document.getElementById("infoBtn"),
   infoOverlay: document.getElementById("infoOverlay"),
@@ -90,6 +99,8 @@ const elements = {
   modalTitle: document.getElementById("modalTitle"),
   modalTags: document.getElementById("modalTags"),
   modalSaveBtn: document.getElementById("modalSaveBtn"),
+  modalPlanBtn: document.getElementById("modalPlanBtn"),
+  modalCookBtn: document.getElementById("modalCookBtn"),
   ratingControl: document.getElementById("ratingControl"),
   noteInput: document.getElementById("noteInput"),
   modalArea: document.getElementById("modalArea"),
@@ -102,8 +113,34 @@ const elements = {
   savedCloseBtn: document.getElementById("savedCloseBtn"),
   savedList: document.getElementById("savedList"),
   savedEmpty: document.getElementById("savedEmpty"),
+  plannerOverlay: document.getElementById("plannerOverlay"),
+  plannerCloseBtn: document.getElementById("plannerCloseBtn"),
+  plannerGrid: document.getElementById("plannerGrid"),
+  generateShopBtn: document.getElementById("generateShopBtn"),
+  clearPlanBtn: document.getElementById("clearPlanBtn"),
+  shoppingOverlay: document.getElementById("shoppingOverlay"),
+  shoppingCloseBtn: document.getElementById("shoppingCloseBtn"),
+  shoppingList: document.getElementById("shoppingList"),
+  shoppingEmpty: document.getElementById("shoppingEmpty"),
+  clearShoppingBtn: document.getElementById("clearShoppingBtn"),
+  cookOverlay: document.getElementById("cookOverlay"),
+  cookCloseBtn: document.getElementById("cookCloseBtn"),
+  cookTitle: document.getElementById("cookTitle"),
+  cookProgress: document.getElementById("cookProgress"),
+  cookStepLabel: document.getElementById("cookStepLabel"),
+  cookStepText: document.getElementById("cookStepText"),
+  cookPrevBtn: document.getElementById("cookPrevBtn"),
+  cookNextBtn: document.getElementById("cookNextBtn"),
+  timerDisplay: document.getElementById("timerDisplay"),
+  timerFiveBtn: document.getElementById("timerFiveBtn"),
+  timerStartBtn: document.getElementById("timerStartBtn"),
+  timerResetBtn: document.getElementById("timerResetBtn"),
   toast: document.getElementById("toast"),
 };
+
+let timerSeconds = 0;
+let timerRunning = false;
+let timerInterval = null;
 
 function init() {
   hydrateLibrary();
@@ -112,6 +149,7 @@ function init() {
   renderCategoryButtons(fallbackCategories);
   loadCategories();
   updateFavCount();
+  updateShopCount();
   renderRecipes(starterMeals, {
     title: "Featured ideas",
     countLabel: "3 starter cards",
@@ -121,6 +159,8 @@ function init() {
 
 function bindEvents() {
   elements.logo.addEventListener("click", scrollToTop);
+  elements.plannerBtn.addEventListener("click", openPlanner);
+  elements.shoppingBtn.addEventListener("click", openShoppingList);
   elements.savedBtn.addEventListener("click", openSavedPanel);
   elements.themeBtn.addEventListener("click", toggleTheme);
   elements.infoBtn.addEventListener("click", openInfoPopup);
@@ -135,8 +175,23 @@ function bindEvents() {
   elements.modalCloseBtn.addEventListener("click", closeRecipeModal);
   elements.recipeModal.addEventListener("click", handleRecipeModalClick);
   elements.modalSaveBtn.addEventListener("click", toggleCurrentFavorite);
+  elements.modalPlanBtn.addEventListener("click", openPlannerForCurrentMeal);
+  elements.modalCookBtn.addEventListener("click", startCookingMode);
   elements.savedCloseBtn.addEventListener("click", closeSavedPanel);
   elements.savedOverlay.addEventListener("click", handleSavedOverlayClick);
+  elements.plannerCloseBtn.addEventListener("click", closePlanner);
+  elements.plannerOverlay.addEventListener("click", handlePlannerOverlayClick);
+  elements.generateShopBtn.addEventListener("click", generateShoppingList);
+  elements.clearPlanBtn.addEventListener("click", clearMealPlan);
+  elements.shoppingCloseBtn.addEventListener("click", closeShoppingList);
+  elements.shoppingOverlay.addEventListener("click", handleShoppingOverlayClick);
+  elements.clearShoppingBtn.addEventListener("click", clearShoppingList);
+  elements.cookCloseBtn.addEventListener("click", exitCookingMode);
+  elements.cookPrevBtn.addEventListener("click", () => moveCookStep(-1));
+  elements.cookNextBtn.addEventListener("click", () => moveCookStep(1));
+  elements.timerFiveBtn.addEventListener("click", () => setTimer(5));
+  elements.timerStartBtn.addEventListener("click", toggleTimer);
+  elements.timerResetBtn.addEventListener("click", resetTimer);
   elements.sortSelect.addEventListener("change", sortRecipes);
   elements.gridViewBtn.addEventListener("click", () => setView("grid"));
   elements.listViewBtn.addEventListener("click", () => setView("list"));
@@ -175,6 +230,9 @@ function bindEvents() {
       closeInfoPopup();
       closeRecipeModal();
       closeSavedPanel();
+      closePlanner();
+      closeShoppingList();
+      exitCookingMode();
     }
   });
 
@@ -199,13 +257,18 @@ function hydrateLibrary() {
   state.favorites = new Map(saved.map((meal) => [meal.idMeal, meal]));
   state.ratings = load("savor_ratings", {});
   state.notes = load("savor_notes", {});
+  state.mealPlan = load("savor_meal_plan", {});
+  state.shoppingList = load("savor_shopping_list", []);
 }
 
 function persistLibrary() {
   save("savor_favorites", Array.from(state.favorites.values()));
   save("savor_ratings", state.ratings);
   save("savor_notes", state.notes);
+  save("savor_meal_plan", state.mealPlan);
+  save("savor_shopping_list", state.shoppingList);
   updateFavCount();
+  updateShopCount();
 }
 
 function save(key, value) {
@@ -277,12 +340,62 @@ function handleSavedOverlayClick(event) {
   }
 }
 
-function restoreBodyScroll() {
-  const modalOpen = elements.recipeModal.classList.contains("open");
-  const infoOpen = elements.infoOverlay.classList.contains("open");
-  const savedOpen = elements.savedOverlay.classList.contains("open");
+function openPlanner() {
+  closeRecipeModal();
+  renderPlanner();
+  elements.plannerOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
 
-  if (!modalOpen && !infoOpen && !savedOpen) {
+function openPlannerForCurrentMeal() {
+  if (!state.currentMeal) {
+    showToast("Open a recipe before adding it to the planner.");
+    return;
+  }
+
+  openPlanner();
+  showToast("Choose a planner slot for this recipe.");
+}
+
+function closePlanner() {
+  elements.plannerOverlay.classList.remove("open");
+  restoreBodyScroll();
+}
+
+function handlePlannerOverlayClick(event) {
+  if (event.target === elements.plannerOverlay) {
+    closePlanner();
+  }
+}
+
+function openShoppingList() {
+  renderShoppingList();
+  elements.shoppingOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeShoppingList() {
+  elements.shoppingOverlay.classList.remove("open");
+  restoreBodyScroll();
+}
+
+function handleShoppingOverlayClick(event) {
+  if (event.target === elements.shoppingOverlay) {
+    closeShoppingList();
+  }
+}
+
+function restoreBodyScroll() {
+  const anyOpen = [
+    elements.recipeModal,
+    elements.infoOverlay,
+    elements.savedOverlay,
+    elements.plannerOverlay,
+    elements.shoppingOverlay,
+    elements.cookOverlay,
+  ].some((panel) => panel.classList.contains("open"));
+
+  if (!anyOpen) {
     document.body.style.overflow = "";
   }
 }
@@ -936,6 +1049,293 @@ function createSavedItem(meal) {
   item.append(thumb, info);
 
   return item;
+}
+
+function renderPlanner() {
+  elements.plannerGrid.innerHTML = "";
+  elements.plannerGrid.appendChild(document.createElement("span"));
+
+  DAYS.forEach((day) => {
+    const heading = document.createElement("div");
+    heading.className = "planner-day";
+    heading.textContent = day;
+    elements.plannerGrid.appendChild(heading);
+  });
+
+  MEAL_TYPES.forEach((mealType) => {
+    const label = document.createElement("div");
+    label.className = "planner-meal";
+    label.textContent = mealType;
+    elements.plannerGrid.appendChild(label);
+
+    DAYS.forEach((day) => {
+      const key = buildPlanKey(day, mealType);
+      const meal = state.mealPlan[key];
+      elements.plannerGrid.appendChild(createPlannerCell(day, mealType, meal));
+    });
+  });
+}
+
+function createPlannerCell(day, mealType, meal) {
+  const cell = document.createElement("button");
+  cell.className = meal ? "planner-cell filled" : "planner-cell";
+  cell.type = "button";
+
+  if (meal) {
+    const name = document.createElement("strong");
+    name.textContent = meal.strMeal;
+
+    const meta = document.createElement("span");
+    meta.textContent = [meal.strArea, meal.strCategory].filter(Boolean).join(" • ");
+
+    const remove = document.createElement("span");
+    remove.className = "planner-remove";
+    remove.textContent = "Remove";
+
+    cell.append(name, meta, remove);
+  } else {
+    const empty = document.createElement("span");
+    empty.textContent = state.currentMeal ? "Add current recipe" : "Open a recipe first";
+    cell.appendChild(empty);
+  }
+
+  cell.addEventListener("click", () => handlePlannerSlot(day, mealType, meal));
+  return cell;
+}
+
+function handlePlannerSlot(day, mealType, meal) {
+  const key = buildPlanKey(day, mealType);
+
+  if (meal) {
+    delete state.mealPlan[key];
+    persistLibrary();
+    renderPlanner();
+    showToast("Removed from meal plan.");
+    return;
+  }
+
+  if (!state.currentMeal) {
+    showToast("Open a recipe, then choose a planner slot.");
+    return;
+  }
+
+  state.mealPlan[key] = state.currentMeal;
+  persistLibrary();
+  renderPlanner();
+  showToast(`Added to ${day} ${mealType.toLowerCase()}.`);
+}
+
+function clearMealPlan() {
+  state.mealPlan = {};
+  persistLibrary();
+  renderPlanner();
+  showToast("Meal plan cleared.");
+}
+
+function buildPlanKey(day, mealType) {
+  return `${day}_${mealType.toLowerCase()}`;
+}
+
+function generateShoppingList() {
+  const plannedMeals = Object.values(state.mealPlan).filter(Boolean);
+
+  if (!plannedMeals.length) {
+    showToast("Add recipes to the meal plan first.");
+    return;
+  }
+
+  const grouped = new Map();
+
+  plannedMeals.forEach((meal) => {
+    extractIngredients(meal).forEach((ingredient) => {
+      const key = ingredient.name.toLowerCase();
+      const existing = grouped.get(key) || {
+        id: key,
+        name: ingredient.name,
+        amounts: [],
+        recipes: new Set(),
+        checked: false,
+      };
+
+      if (ingredient.measure) existing.amounts.push(ingredient.measure);
+      existing.recipes.add(meal.strMeal);
+      grouped.set(key, existing);
+    });
+  });
+
+  state.shoppingList = Array.from(grouped.values()).map((item) => ({
+    id: item.id,
+    name: item.name,
+    amount: [...new Set(item.amounts)].join(" + ") || "as needed",
+    recipes: Array.from(item.recipes),
+    checked: false,
+  }));
+
+  persistLibrary();
+  closePlanner();
+  openShoppingList();
+  showToast("Shopping list generated from your plan.");
+}
+
+function renderShoppingList() {
+  elements.shoppingList.innerHTML = "";
+  elements.shoppingEmpty.hidden = state.shoppingList.length > 0;
+
+  state.shoppingList.forEach((item) => {
+    elements.shoppingList.appendChild(createShoppingItem(item));
+  });
+}
+
+function createShoppingItem(item) {
+  const row = document.createElement("label");
+  row.className = item.checked ? "shopping-item checked" : "shopping-item";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = item.checked;
+  checkbox.addEventListener("change", () => {
+    item.checked = checkbox.checked;
+    persistLibrary();
+    renderShoppingList();
+  });
+
+  const body = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = item.name;
+
+  const meta = document.createElement("span");
+  meta.textContent = `${item.amount} • ${item.recipes.join(", ")}`;
+
+  body.append(name, meta);
+  row.append(checkbox, body);
+
+  return row;
+}
+
+function clearShoppingList() {
+  state.shoppingList = [];
+  persistLibrary();
+  renderShoppingList();
+  showToast("Shopping list cleared.");
+}
+
+function updateShopCount() {
+  const remaining = state.shoppingList.filter((item) => !item.checked).length;
+  elements.shopCount.textContent = remaining;
+}
+
+function startCookingMode() {
+  if (!state.currentMeal) return;
+
+  const steps = parseInstructions(state.currentMeal.strInstructions);
+
+  if (!steps.length) {
+    showToast("No cooking steps are available for this recipe.");
+    return;
+  }
+
+  state.cookSteps = steps;
+  state.cookStep = 0;
+  elements.cookTitle.textContent = state.currentMeal.strMeal;
+  closeRecipeModal();
+  elements.cookOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+  renderCookingStep();
+}
+
+function exitCookingMode() {
+  elements.cookOverlay.classList.remove("open");
+  resetTimer();
+  restoreBodyScroll();
+}
+
+function renderCookingStep() {
+  const total = state.cookSteps.length;
+  const index = state.cookStep;
+
+  elements.cookProgress.innerHTML = "";
+
+  state.cookSteps.forEach((_, stepIndex) => {
+    const pip = document.createElement("span");
+    pip.className = "cook-pip";
+    pip.classList.toggle("done", stepIndex < index);
+    pip.classList.toggle("active", stepIndex === index);
+    elements.cookProgress.appendChild(pip);
+  });
+
+  elements.cookStepLabel.textContent = `Step ${index + 1} of ${total}`;
+  elements.cookStepText.textContent = state.cookSteps[index];
+  elements.cookPrevBtn.disabled = index === 0;
+  elements.cookNextBtn.textContent = index === total - 1 ? "Finish" : "Next step";
+}
+
+function moveCookStep(direction) {
+  const nextStep = state.cookStep + direction;
+
+  if (nextStep < 0) return;
+
+  if (nextStep >= state.cookSteps.length) {
+    exitCookingMode();
+    showToast("Recipe complete. Enjoy!");
+    return;
+  }
+
+  state.cookStep = nextStep;
+  renderCookingStep();
+}
+
+function setTimer(minutes) {
+  timerSeconds = minutes * 60;
+  timerRunning = false;
+  stopTimerInterval();
+  renderTimer();
+  elements.timerStartBtn.textContent = "Start";
+}
+
+function toggleTimer() {
+  if (!timerSeconds) {
+    setTimer(5);
+  }
+
+  timerRunning = !timerRunning;
+  elements.timerStartBtn.textContent = timerRunning ? "Pause" : "Start";
+
+  if (timerRunning) {
+    timerInterval = window.setInterval(tickTimer, 1000);
+  } else {
+    stopTimerInterval();
+  }
+}
+
+function tickTimer() {
+  timerSeconds = Math.max(0, timerSeconds - 1);
+  renderTimer();
+
+  if (timerSeconds === 0) {
+    stopTimerInterval();
+    timerRunning = false;
+    elements.timerStartBtn.textContent = "Start";
+    showToast("Timer finished.");
+  }
+}
+
+function resetTimer() {
+  timerSeconds = 0;
+  timerRunning = false;
+  stopTimerInterval();
+  renderTimer();
+  elements.timerStartBtn.textContent = "Start";
+}
+
+function stopTimerInterval() {
+  window.clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+function renderTimer() {
+  const minutes = String(Math.floor(timerSeconds / 60)).padStart(2, "0");
+  const seconds = String(timerSeconds % 60).padStart(2, "0");
+  elements.timerDisplay.textContent = `${minutes}:${seconds}`;
 }
 
 function extractIngredients(meal) {

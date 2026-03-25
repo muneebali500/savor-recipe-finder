@@ -52,6 +52,14 @@ portfolio visitors what the app does.
 - Added recipe ratings and personal notes inside the detail modal.
 - Synced saved state, ratings, and notes across recipe cards and modal views.
 
+## Day 6 Scope
+
+- Added a weekly meal planner with breakfast, lunch, dinner, and snack slots.
+- Added shopping-list generation from planned recipes with checkbox progress.
+- Added cooking mode with step-by-step navigation and a simple kitchen timer.
+- Completed final persistence wiring for saved recipes, notes, ratings, plans,
+  and shopping lists.
+
 ## Planned Milestones
 
 1. Project scaffold, separated files, responsive interface, and info popup.
