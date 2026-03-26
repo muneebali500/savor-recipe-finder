@@ -1,1472 +1,1229 @@
-const API_BASE = "https://www.themealdb.com/api/json/v1/1";
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
-
-const starterMeals = [
-  {
-    idMeal: "starter-pasta",
-    strMeal: "Creamy Pasta Night",
-    strArea: "Italian",
-    strCategory: "Pasta",
-    strMealThumb: "",
-    strInstructions:
-      "Boil pasta until tender. Warm cream, garlic, and parmesan in a pan. Toss the pasta through the sauce and finish with black pepper.",
-    description:
-      "A warm starter idea while the live recipe search waits for your first keyword.",
-  },
-  {
-    idMeal: "starter-curry",
-    strMeal: "Golden Curry Bowl",
-    strArea: "Indian",
-    strCategory: "Main",
-    strMealThumb: "",
-    strInstructions:
-      "Toast spices in oil. Add onions, tomatoes, and stock. Simmer until rich, then serve with rice and fresh herbs.",
-    description:
-      "A simple preview card showing how cuisine browsing will feel in the full app.",
-  },
-  {
-    idMeal: "starter-salmon",
-    strMeal: "Citrus Salmon Plate",
-    strArea: "Seafood",
-    strCategory: "Dinner",
-    strMealThumb: "",
-    strInstructions:
-      "Season salmon with citrus zest and salt. Sear until golden. Serve with herbs, greens, and a squeeze of lemon.",
-    description:
-      "A fresh recipe-card layout that can now be replaced by live API results.",
-  },
-];
-
-const fallbackCategories = ["Beef", "Chicken", "Dessert", "Pasta", "Seafood", "Vegetarian"];
-
-const state = {
-  ingredients: [],
-  meals: [...starterMeals],
-  favorites: new Map(),
-  ratings: {},
-  notes: {},
-  mealPlan: {},
-  shoppingList: [],
-  theme: localStorage.getItem("savor_theme") || "light",
-  lastQuery: "",
-  loading: false,
-  currentMeal: null,
-  activeArea: "",
-  activeCategory: "",
-  sort: "default",
-  currentView: "grid",
-  currentTitle: "Featured ideas",
-  currentCountLabel: "3 starter cards",
-  cookSteps: [],
-  cookStep: 0,
-};
-
-const elements = {
-  logo: document.querySelector(".logo"),
-  plannerBtn: document.getElementById("plannerBtn"),
-  shoppingBtn: document.getElementById("shoppingBtn"),
-  savedBtn: document.getElementById("savedBtn"),
-  favCount: document.getElementById("favCount"),
-  shopCount: document.getElementById("shopCount"),
-  themeBtn: document.getElementById("themeBtn"),
-  infoBtn: document.getElementById("infoBtn"),
-  infoOverlay: document.getElementById("infoOverlay"),
-  infoCloseBtn: document.getElementById("infoCloseBtn"),
-  infoStartBtn: document.getElementById("infoStartBtn"),
-  searchInput: document.getElementById("searchInput"),
-  searchBtn: document.getElementById("searchBtn"),
-  randomBtn: document.getElementById("randomBtn"),
-  ingrToggleBtn: document.getElementById("ingrToggleBtn"),
-  ingrSearchBar: document.getElementById("ingrSearchBar"),
-  ingrInput: document.getElementById("ingrInput"),
-  addIngredientBtn: document.getElementById("addIngredientBtn"),
-  ingredientSearchBtn: document.getElementById("ingredientSearchBtn"),
-  ingrTags: document.getElementById("ingrTags"),
-  categoryBar: document.getElementById("categoryBar"),
-  recipeGrid: document.getElementById("recipeGrid"),
-  loader: document.getElementById("loader"),
-  emptyState: document.getElementById("emptyState"),
-  sectionTitle: document.getElementById("sectionTitle"),
-  resultCount: document.getElementById("resultCount"),
-  sortSelect: document.getElementById("sortSelect"),
-  gridViewBtn: document.getElementById("gridViewBtn"),
-  listViewBtn: document.getElementById("listViewBtn"),
-  recipeModal: document.getElementById("recipeModal"),
-  modalHero: document.getElementById("modalHero"),
-  modalCloseBtn: document.getElementById("modalCloseBtn"),
-  modalCuisine: document.getElementById("modalCuisine"),
-  modalTitle: document.getElementById("modalTitle"),
-  modalTags: document.getElementById("modalTags"),
-  modalSaveBtn: document.getElementById("modalSaveBtn"),
-  modalPlanBtn: document.getElementById("modalPlanBtn"),
-  modalCookBtn: document.getElementById("modalCookBtn"),
-  ratingControl: document.getElementById("ratingControl"),
-  noteInput: document.getElementById("noteInput"),
-  modalArea: document.getElementById("modalArea"),
-  modalCategory: document.getElementById("modalCategory"),
-  modalIngredientCount: document.getElementById("modalIngredientCount"),
-  modalIngredients: document.getElementById("modalIngredients"),
-  modalSteps: document.getElementById("modalSteps"),
-  modalLinks: document.getElementById("modalLinks"),
-  savedOverlay: document.getElementById("savedOverlay"),
-  savedCloseBtn: document.getElementById("savedCloseBtn"),
-  savedList: document.getElementById("savedList"),
-  savedEmpty: document.getElementById("savedEmpty"),
-  plannerOverlay: document.getElementById("plannerOverlay"),
-  plannerCloseBtn: document.getElementById("plannerCloseBtn"),
-  plannerGrid: document.getElementById("plannerGrid"),
-  generateShopBtn: document.getElementById("generateShopBtn"),
-  clearPlanBtn: document.getElementById("clearPlanBtn"),
-  shoppingOverlay: document.getElementById("shoppingOverlay"),
-  shoppingCloseBtn: document.getElementById("shoppingCloseBtn"),
-  shoppingList: document.getElementById("shoppingList"),
-  shoppingEmpty: document.getElementById("shoppingEmpty"),
-  clearShoppingBtn: document.getElementById("clearShoppingBtn"),
-  cookOverlay: document.getElementById("cookOverlay"),
-  cookCloseBtn: document.getElementById("cookCloseBtn"),
-  cookTitle: document.getElementById("cookTitle"),
-  cookProgress: document.getElementById("cookProgress"),
-  cookStepLabel: document.getElementById("cookStepLabel"),
-  cookStepText: document.getElementById("cookStepText"),
-  cookPrevBtn: document.getElementById("cookPrevBtn"),
-  cookNextBtn: document.getElementById("cookNextBtn"),
-  timerDisplay: document.getElementById("timerDisplay"),
-  timerFiveBtn: document.getElementById("timerFiveBtn"),
-  timerStartBtn: document.getElementById("timerStartBtn"),
-  timerResetBtn: document.getElementById("timerResetBtn"),
-  toast: document.getElementById("toast"),
-};
-
-let timerSeconds = 0;
-let timerRunning = false;
-let timerInterval = null;
-
-function init() {
-  hydrateLibrary();
-  applySavedTheme();
-  bindEvents();
-  renderCategoryButtons(fallbackCategories);
-  loadCategories();
-  updateFavCount();
-  updateShopCount();
-  renderRecipes(starterMeals, {
-    title: "Featured ideas",
-    countLabel: "3 starter cards",
-  });
-  openInfoPopup();
-}
-
-function bindEvents() {
-  elements.logo.addEventListener("click", scrollToTop);
-  elements.plannerBtn.addEventListener("click", openPlanner);
-  elements.shoppingBtn.addEventListener("click", openShoppingList);
-  elements.savedBtn.addEventListener("click", openSavedPanel);
-  elements.themeBtn.addEventListener("click", toggleTheme);
-  elements.infoBtn.addEventListener("click", openInfoPopup);
-  elements.infoCloseBtn.addEventListener("click", closeInfoPopup);
-  elements.infoStartBtn.addEventListener("click", closeInfoPopup);
-  elements.infoOverlay.addEventListener("click", handleInfoOverlayClick);
-  elements.searchBtn.addEventListener("click", startSearch);
-  elements.randomBtn.addEventListener("click", loadRandom);
-  elements.ingrToggleBtn.addEventListener("click", toggleIngredientSearch);
-  elements.addIngredientBtn.addEventListener("click", addIngredient);
-  elements.ingredientSearchBtn.addEventListener("click", searchByIngredients);
-  elements.modalCloseBtn.addEventListener("click", closeRecipeModal);
-  elements.recipeModal.addEventListener("click", handleRecipeModalClick);
-  elements.modalSaveBtn.addEventListener("click", toggleCurrentFavorite);
-  elements.modalPlanBtn.addEventListener("click", openPlannerForCurrentMeal);
-  elements.modalCookBtn.addEventListener("click", startCookingMode);
-  elements.savedCloseBtn.addEventListener("click", closeSavedPanel);
-  elements.savedOverlay.addEventListener("click", handleSavedOverlayClick);
-  elements.plannerCloseBtn.addEventListener("click", closePlanner);
-  elements.plannerOverlay.addEventListener("click", handlePlannerOverlayClick);
-  elements.generateShopBtn.addEventListener("click", generateShoppingList);
-  elements.clearPlanBtn.addEventListener("click", clearMealPlan);
-  elements.shoppingCloseBtn.addEventListener("click", closeShoppingList);
-  elements.shoppingOverlay.addEventListener("click", handleShoppingOverlayClick);
-  elements.clearShoppingBtn.addEventListener("click", clearShoppingList);
-  elements.cookCloseBtn.addEventListener("click", exitCookingMode);
-  elements.cookPrevBtn.addEventListener("click", () => moveCookStep(-1));
-  elements.cookNextBtn.addEventListener("click", () => moveCookStep(1));
-  elements.timerFiveBtn.addEventListener("click", () => setTimer(5));
-  elements.timerStartBtn.addEventListener("click", toggleTimer);
-  elements.timerResetBtn.addEventListener("click", resetTimer);
-  elements.sortSelect.addEventListener("change", sortRecipes);
-  elements.gridViewBtn.addEventListener("click", () => setView("grid"));
-  elements.listViewBtn.addEventListener("click", () => setView("list"));
-
-  elements.noteInput.addEventListener("input", () => {
-    if (!state.currentMeal) return;
-    state.notes[state.currentMeal.idMeal] = elements.noteInput.value;
-    persistLibrary();
-  });
-
-  elements.ratingControl.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (!state.currentMeal) return;
-      state.ratings[state.currentMeal.idMeal] = Number(button.dataset.rating);
-      persistLibrary();
-      renderRating(state.ratings[state.currentMeal.idMeal]);
-      renderRecipes();
-      renderSavedPanel();
-    });
-  });
-
-  elements.searchInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      startSearch();
-    }
-  });
-
-  elements.ingrInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      addIngredient();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeInfoPopup();
-      closeRecipeModal();
-      closeSavedPanel();
-      closePlanner();
-      closeShoppingList();
-      exitCookingMode();
-    }
-  });
-
-  document.querySelectorAll(".suggestion-chip").forEach((button) => {
-    button.addEventListener("click", () => quickSearch(button.dataset.search));
-  });
-
-  document.querySelectorAll(".filter-chip").forEach((button) => {
-    button.addEventListener("click", () => searchByArea(button));
-  });
-
-  elements.categoryBar.addEventListener("click", (event) => {
-    const button = event.target.closest(".cat-chip");
-    if (button) {
-      searchByCategory(button);
-    }
-  });
-}
-
-function hydrateLibrary() {
-  const saved = load("savor_favorites", []);
-  state.favorites = new Map(saved.map((meal) => [meal.idMeal, meal]));
-  state.ratings = load("savor_ratings", {});
-  state.notes = load("savor_notes", {});
-  state.mealPlan = load("savor_meal_plan", {});
-  state.shoppingList = load("savor_shopping_list", []);
-}
-
-function persistLibrary() {
-  save("savor_favorites", Array.from(state.favorites.values()));
-  save("savor_ratings", state.ratings);
-  save("savor_notes", state.notes);
-  save("savor_meal_plan", state.mealPlan);
-  save("savor_shopping_list", state.shoppingList);
-  updateFavCount();
-  updateShopCount();
-}
-
-function save(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch (error) {
-    return fallback;
-  }
-}
-
-function applySavedTheme() {
-  if (state.theme === "dark") {
-    document.documentElement.setAttribute("data-theme", "dark");
-    elements.themeBtn.textContent = "☀️";
-  }
-}
-
-function toggleTheme() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-
-  if (isDark) {
-    document.documentElement.removeAttribute("data-theme");
-    elements.themeBtn.textContent = "🌙";
-    state.theme = "light";
-  } else {
-    document.documentElement.setAttribute("data-theme", "dark");
-    elements.themeBtn.textContent = "☀️";
-    state.theme = "dark";
-  }
-
-  localStorage.setItem("savor_theme", state.theme);
-}
-
-function openInfoPopup() {
-  elements.infoOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function closeInfoPopup() {
-  elements.infoOverlay.classList.remove("open");
-  restoreBodyScroll();
-}
-
-function handleInfoOverlayClick(event) {
-  if (event.target === elements.infoOverlay) {
-    closeInfoPopup();
-  }
-}
-
-function openSavedPanel() {
-  renderSavedPanel();
-  elements.savedOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function closeSavedPanel() {
-  elements.savedOverlay.classList.remove("open");
-  restoreBodyScroll();
-}
-
-function handleSavedOverlayClick(event) {
-  if (event.target === elements.savedOverlay) {
-    closeSavedPanel();
-  }
-}
-
-function openPlanner() {
-  closeRecipeModal();
-  renderPlanner();
-  elements.plannerOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function openPlannerForCurrentMeal() {
-  if (!state.currentMeal) {
-    showToast("Open a recipe before adding it to the planner.");
-    return;
-  }
-
-  openPlanner();
-  showToast("Choose a planner slot for this recipe.");
-}
-
-function closePlanner() {
-  elements.plannerOverlay.classList.remove("open");
-  restoreBodyScroll();
-}
-
-function handlePlannerOverlayClick(event) {
-  if (event.target === elements.plannerOverlay) {
-    closePlanner();
-  }
-}
-
-function openShoppingList() {
-  renderShoppingList();
-  elements.shoppingOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function closeShoppingList() {
-  elements.shoppingOverlay.classList.remove("open");
-  restoreBodyScroll();
-}
-
-function handleShoppingOverlayClick(event) {
-  if (event.target === elements.shoppingOverlay) {
-    closeShoppingList();
-  }
-}
-
-function restoreBodyScroll() {
-  const anyOpen = [
-    elements.recipeModal,
-    elements.infoOverlay,
-    elements.savedOverlay,
-    elements.plannerOverlay,
-    elements.shoppingOverlay,
-    elements.cookOverlay,
-  ].some((panel) => panel.classList.contains("open"));
-
-  if (!anyOpen) {
-    document.body.style.overflow = "";
-  }
-}
-
-function toggleIngredientSearch() {
-  elements.ingrSearchBar.classList.toggle("open");
-  elements.ingrToggleBtn.classList.toggle("active");
-
-  if (elements.ingrSearchBar.classList.contains("open")) {
-    elements.ingrInput.focus();
-  }
-}
-
-function addIngredient() {
-  const ingredient = elements.ingrInput.value.trim();
-
-  if (!ingredient) {
-    showToast("Type an ingredient first.");
-    return;
-  }
-
-  if (state.ingredients.includes(ingredient.toLowerCase())) {
-    showToast("That ingredient is already added.");
-    elements.ingrInput.value = "";
-    return;
-  }
-
-  state.ingredients.push(ingredient.toLowerCase());
-  elements.ingrInput.value = "";
-  renderIngredientTags();
-}
-
-function removeIngredient(ingredient) {
-  state.ingredients = state.ingredients.filter((item) => item !== ingredient);
-  renderIngredientTags();
-}
-
-function renderIngredientTags() {
-  elements.ingrTags.innerHTML = "";
-
-  state.ingredients.forEach((ingredient) => {
-    const tag = document.createElement("span");
-    tag.className = "ingr-tag";
-    tag.textContent = ingredient;
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.setAttribute("aria-label", `Remove ${ingredient}`);
-    removeBtn.textContent = "×";
-    removeBtn.addEventListener("click", () => {
-      removeIngredient(ingredient);
-    });
-
-    tag.appendChild(removeBtn);
-    elements.ingrTags.appendChild(tag);
-  });
-}
-
-async function startSearch() {
-  const query = elements.searchInput.value.trim();
-
-  if (!query || state.loading) {
-    if (!query) showToast("Enter a recipe name to search.");
-    return;
-  }
-
-  clearFilterSelection();
-  state.lastQuery = query;
-  setLoading(true, "Searching...");
-
-  try {
-    const meals = await searchRecipes(query);
-    setResults(meals, {
-      title: `Results for "${query}"`,
-      countLabel: buildCountLabel(meals.length),
-    });
-
-    if (!meals.length) {
-      showToast("No matching recipes found.");
-    }
-  } catch (error) {
-    setResults([], {
-      title: "Search unavailable",
-      countLabel: "network error",
-    });
-    showToast("Could not reach TheMealDB. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-}
-
-async function searchByArea(button) {
-  if (state.loading) return;
-
-  const area = button.dataset.area;
-  state.activeArea = area;
-  state.activeCategory = "";
-  setActiveButton(".filter-chip", button);
-  setActiveButton(".cat-chip", null);
-  setLoading(true, "Filtering...");
-
-  try {
-    const meals = await fetchFilteredMeals("a", area, { strArea: area });
-    setResults(meals, {
-      title: `${area} recipes`,
-      countLabel: buildCountLabel(meals.length),
-    });
-  } catch (error) {
-    showToast(`Could not load ${area} recipes.`);
-  } finally {
-    setLoading(false);
-  }
-}
-
-async function searchByCategory(button) {
-  if (state.loading) return;
-
-  const category = button.dataset.category;
-  state.activeCategory = category;
-  state.activeArea = "";
-  setActiveButton(".cat-chip", button);
-  setActiveButton(".filter-chip", null);
-  setLoading(true, "Browsing...");
-
-  try {
-    const meals = await fetchFilteredMeals("c", category, {
-      strCategory: category,
-    });
-    setResults(meals, {
-      title: `${category} recipes`,
-      countLabel: buildCountLabel(meals.length),
-    });
-  } catch (error) {
-    showToast(`Could not load ${category} recipes.`);
-  } finally {
-    setLoading(false);
-  }
-}
-
-async function searchByIngredients() {
-  if (!state.ingredients.length) {
-    showToast("Add at least one ingredient first.");
-    return;
-  }
-
-  if (state.loading) return;
-
-  clearFilterSelection();
-  setLoading(true, "Matching...");
-
-  try {
-    const meals = await fetchMealsByIngredients(state.ingredients);
-    setResults(meals, {
-      title: `Recipes with ${state.ingredients.join(", ")}`,
-      countLabel: buildCountLabel(meals.length),
-    });
-
-    if (!meals.length) {
-      showToast("No recipes matched all selected ingredients.");
-    }
-  } catch (error) {
-    showToast("Could not search by ingredients.");
-  } finally {
-    setLoading(false);
-  }
-}
-
-async function searchRecipes(query) {
-  const response = await fetch(
-    `${API_BASE}/search.php?s=${encodeURIComponent(query)}`,
-  );
-
-  if (!response.ok) {
-    throw new Error(`Recipe search failed with ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.meals || [];
-}
-
-async function fetchFilteredMeals(type, value, extra = {}) {
-  const response = await fetch(
-    `${API_BASE}/filter.php?${type}=${encodeURIComponent(value)}`,
-  );
-
-  if (!response.ok) {
-    throw new Error(`Filter request failed with ${response.status}`);
-  }
-
-  const data = await response.json();
-  return (data.meals || []).map((meal) => ({ ...meal, ...extra }));
-}
-
-async function fetchMealsByIngredients(ingredients) {
-  const lists = await Promise.all(
-    ingredients.map((ingredient) => fetchFilteredMeals("i", ingredient)),
-  );
-
-  if (!lists.length) return [];
-
-  const [firstList, ...rest] = lists;
-  const commonIds = rest.reduce((ids, list) => {
-    const nextIds = new Set(list.map((meal) => meal.idMeal));
-    return ids.filter((id) => nextIds.has(id));
-  }, firstList.map((meal) => meal.idMeal));
-
-  const lookup = new Map(firstList.map((meal) => [meal.idMeal, meal]));
-  return commonIds.map((id) => lookup.get(id)).filter(Boolean);
-}
-
-async function fetchRandomRecipe() {
-  const response = await fetch(`${API_BASE}/random.php`);
-
-  if (!response.ok) {
-    throw new Error(`Random recipe failed with ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.meals ? data.meals[0] : null;
-}
-
-async function fetchRecipeById(id) {
-  const response = await fetch(`${API_BASE}/lookup.php?i=${id}`);
-
-  if (!response.ok) {
-    throw new Error(`Recipe lookup failed with ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.meals ? data.meals[0] : null;
-}
-
-async function loadCategories() {
-  try {
-    const response = await fetch(`${API_BASE}/categories.php`);
-
-    if (!response.ok) {
-      throw new Error(`Category request failed with ${response.status}`);
-    }
-
-    const data = await response.json();
-    const categories = (data.categories || []).map((item) => item.strCategory);
-    renderCategoryButtons(categories.length ? categories : fallbackCategories);
-  } catch (error) {
-    renderCategoryButtons(fallbackCategories);
-  }
-}
-
-function renderCategoryButtons(categories) {
-  const label = elements.categoryBar.querySelector(".cat-label");
-  elements.categoryBar.innerHTML = "";
-  elements.categoryBar.appendChild(label);
-
-  categories.forEach((category) => {
-    const button = document.createElement("button");
-    button.className = "cat-chip";
-    button.type = "button";
-    button.dataset.category = category;
-    button.textContent = category;
-    elements.categoryBar.appendChild(button);
-  });
-}
-
-function setResults(meals, options = {}) {
-  state.meals = meals;
-  state.currentTitle = options.title || "Recipes";
-  state.currentCountLabel = options.countLabel || buildCountLabel(meals.length);
-  renderRecipes();
-}
-
-function renderRecipes() {
-  const meals = getSortedMeals(state.meals);
-
-  elements.recipeGrid.innerHTML = "";
-  elements.emptyState.hidden = meals.length > 0;
-  updateSectionTitle(state.currentTitle, state.currentCountLabel);
-  applyViewClass();
-
-  meals.forEach((meal) => {
-    elements.recipeGrid.appendChild(createRecipeCard(meal));
-  });
-}
-
-function updateSectionTitle(title, countLabel) {
-  elements.sectionTitle.childNodes[0].nodeValue = `${title} `;
-  elements.resultCount.textContent = countLabel;
-}
-
-function getSortedMeals(meals) {
-  const sortedMeals = [...meals];
-
-  if (state.sort === "az") {
-    sortedMeals.sort((a, b) => a.strMeal.localeCompare(b.strMeal));
-  }
-
-  if (state.sort === "za") {
-    sortedMeals.sort((a, b) => b.strMeal.localeCompare(a.strMeal));
-  }
-
-  return sortedMeals;
-}
-
-function sortRecipes() {
-  state.sort = elements.sortSelect.value;
-  renderRecipes();
-}
-
-function setView(view) {
-  state.currentView = view;
-  elements.gridViewBtn.classList.toggle("active", view === "grid");
-  elements.listViewBtn.classList.toggle("active", view === "list");
-  applyViewClass();
-}
-
-function applyViewClass() {
-  elements.recipeGrid.classList.toggle("list-view", state.currentView === "list");
-}
-
-function createRecipeCard(meal) {
-  const card = document.createElement("article");
-  card.className = "recipe-card";
-
-  const imageWrap = document.createElement("div");
-  imageWrap.className = "card-img-wrap";
-
-  if (meal.strMealThumb) {
-    const image = document.createElement("img");
-    image.src = meal.strMealThumb;
-    image.alt = meal.strMeal;
-    image.loading = "lazy";
-    imageWrap.appendChild(image);
-  } else {
-    const fallback = document.createElement("span");
-    fallback.className = "emoji-fallback";
-    fallback.textContent = getRecipeEmoji(meal);
-    imageWrap.appendChild(fallback);
-  }
-
-  const body = document.createElement("div");
-  body.className = "card-body";
-
-  const kicker = document.createElement("p");
-  kicker.className = "card-kicker";
-  kicker.textContent =
-    meal.strArea || state.activeArea || meal.strCategory || state.activeCategory || "Recipe idea";
-
-  const title = document.createElement("h2");
-  title.className = "card-title";
-  title.textContent = meal.strMeal;
-
-  const desc = document.createElement("p");
-  desc.className = "card-desc";
-  desc.textContent = buildRecipeSummary(meal);
-
-  const meta = document.createElement("div");
-  meta.className = "card-meta";
-  [
-    meal.strArea || state.activeArea,
-    meal.strCategory || state.activeCategory,
-    buildRatingLabel(meal.idMeal),
-  ]
-    .filter(Boolean)
-    .forEach((item) => {
-      const pill = document.createElement("span");
-      pill.textContent = item;
-      meta.appendChild(pill);
-    });
-
-  const action = document.createElement("button");
-  action.className = "card-action";
-  action.type = "button";
-  action.textContent = "View recipe";
-  action.addEventListener("click", () => openRecipeModal(meal));
-
-  body.append(kicker, title, desc, meta, action);
-  card.append(imageWrap, body);
-
-  return card;
-}
-
-function buildRecipeSummary(meal) {
-  if (meal.description) return meal.description;
-
-  const category = meal.strCategory || state.activeCategory;
-  const area = meal.strArea || state.activeArea;
-
-  if (category && area) {
-    return `A ${category.toLowerCase()} recipe from ${area}. Open the detail view for ingredients, steps, and links.`;
-  }
-
-  if (category) {
-    return `A ${category.toLowerCase()} recipe. Open the detail view for ingredients, steps, and links.`;
-  }
-
-  if (area) {
-    return `A recipe from ${area}. Open the detail view for ingredients, steps, and links.`;
-  }
-
-  return "Open the detail view for ingredients, steps, and recipe links.";
-}
-
-async function openRecipeModal(meal) {
-  let fullMeal = meal;
-
-  if (!fullMeal.strInstructions && !String(fullMeal.idMeal).startsWith("starter")) {
-    showToast("Loading recipe details...");
-    fullMeal = await fetchRecipeById(fullMeal.idMeal);
-  }
-
-  if (!fullMeal) {
-    showToast("Recipe details were not available.");
-    return;
-  }
-
-  state.currentMeal = fullMeal;
-  renderRecipeModal(fullMeal);
-  elements.recipeModal.classList.add("open");
-  document.body.style.overflow = "hidden";
-}
-
-function closeRecipeModal() {
-  elements.recipeModal.classList.remove("open");
-  restoreBodyScroll();
-}
-
-function handleRecipeModalClick(event) {
-  if (event.target === elements.recipeModal) {
-    closeRecipeModal();
-  }
-}
-
-function renderRecipeModal(meal) {
-  const ingredients = extractIngredients(meal);
-  const steps = parseInstructions(meal.strInstructions);
-
-  renderModalHero(meal);
-  elements.modalCuisine.textContent = meal.strArea
-    ? `${meal.strArea} cuisine`
-    : "Recipe details";
-  elements.modalTitle.textContent = meal.strMeal;
-  elements.modalArea.textContent = meal.strArea || "-";
-  elements.modalCategory.textContent = meal.strCategory || "-";
-  elements.modalIngredientCount.textContent = ingredients.length;
-  elements.noteInput.value = state.notes[meal.idMeal] || "";
-
-  renderModalTags(meal);
-  renderModalIngredients(ingredients);
-  renderModalSteps(steps);
-  renderModalLinks(meal);
-  renderFavoriteState();
-  renderRating(state.ratings[meal.idMeal] || 0);
-}
-
-function renderModalHero(meal) {
-  elements.modalHero.querySelector(".modal-preview")?.remove();
-
-  if (meal.strMealThumb) {
-    const image = document.createElement("img");
-    image.className = "modal-preview";
-    image.src = meal.strMealThumb;
-    image.alt = meal.strMeal;
-    elements.modalHero.insertBefore(image, elements.modalCloseBtn);
-    return;
-  }
-
-  const fallback = document.createElement("span");
-  fallback.className = "modal-preview modal-emoji";
-  fallback.textContent = getRecipeEmoji(meal);
-  elements.modalHero.insertBefore(fallback, elements.modalCloseBtn);
-}
-
-function renderModalTags(meal) {
-  elements.modalTags.innerHTML = "";
-  [meal.strArea, meal.strCategory, ...(meal.strTags || "").split(",")]
-    .map((tag) => tag && tag.trim())
-    .filter(Boolean)
-    .slice(0, 6)
-    .forEach((tag) => {
-      const pill = document.createElement("span");
-      pill.textContent = tag;
-      elements.modalTags.appendChild(pill);
-    });
-}
-
-function renderModalIngredients(ingredients) {
-  elements.modalIngredients.innerHTML = "";
-
-  if (!ingredients.length) {
-    const empty = document.createElement("p");
-    empty.className = "card-desc";
-    empty.textContent = "No ingredient list is available for this recipe yet.";
-    elements.modalIngredients.appendChild(empty);
-    return;
-  }
-
-  ingredients.forEach((ingredient) => {
-    const item = document.createElement("div");
-    item.className = "ingredient-item";
-
-    const name = document.createElement("strong");
-    name.textContent = ingredient.name;
-
-    const amount = document.createElement("span");
-    amount.textContent = ingredient.measure || "to taste";
-
-    item.append(name, amount);
-    elements.modalIngredients.appendChild(item);
-  });
-}
-
-function renderModalSteps(steps) {
-  elements.modalSteps.innerHTML = "";
-
-  if (!steps.length) {
-    const item = document.createElement("li");
-    item.textContent = "No step-by-step instructions are available.";
-    elements.modalSteps.appendChild(item);
-    return;
-  }
-
-  steps.forEach((step) => {
-    const item = document.createElement("li");
-    item.textContent = step;
-    elements.modalSteps.appendChild(item);
-  });
-}
-
-function renderModalLinks(meal) {
-  elements.modalLinks.innerHTML = "";
-
-  [
-    { label: "Recipe source", url: meal.strSource },
-    { label: "Watch tutorial", url: meal.strYoutube },
-  ]
-    .filter((link) => link.url)
-    .forEach((link) => {
-      const anchor = document.createElement("a");
-      anchor.href = link.url;
-      anchor.target = "_blank";
-      anchor.rel = "noreferrer";
-      anchor.textContent = link.label;
-      elements.modalLinks.appendChild(anchor);
-    });
-}
-
-function toggleCurrentFavorite() {
-  if (!state.currentMeal) return;
-
-  const id = state.currentMeal.idMeal;
-
-  if (state.favorites.has(id)) {
-    state.favorites.delete(id);
-    showToast("Removed from saved recipes.");
-  } else {
-    state.favorites.set(id, state.currentMeal);
-    showToast("Saved to your recipes.");
-  }
-
-  persistLibrary();
-  renderFavoriteState();
-  renderRecipes();
-  renderSavedPanel();
-}
-
-function renderFavoriteState() {
-  if (!state.currentMeal) return;
-
-  const saved = state.favorites.has(state.currentMeal.idMeal);
-  elements.modalSaveBtn.classList.toggle("active", saved);
-  elements.modalSaveBtn.textContent = saved ? "♥ Saved recipe" : "♡ Save recipe";
-}
-
-function renderRating(rating) {
-  elements.ratingControl.querySelectorAll("button").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.rating) <= rating);
-  });
-}
-
-function buildRatingLabel(id) {
-  const rating = state.ratings[id];
-  return rating ? `${rating}/5 rated` : "";
-}
-
-function updateFavCount() {
-  elements.favCount.textContent = state.favorites.size;
-}
-
-function renderSavedPanel() {
-  const savedMeals = Array.from(state.favorites.values());
-  elements.savedList.innerHTML = "";
-  elements.savedEmpty.hidden = savedMeals.length > 0;
-
-  savedMeals.forEach((meal) => {
-    elements.savedList.appendChild(createSavedItem(meal));
-  });
-}
-
-function createSavedItem(meal) {
-  const item = document.createElement("article");
-  item.className = "saved-item";
-
-  const thumb = document.createElement("div");
-  thumb.className = "saved-thumb";
-
-  if (meal.strMealThumb) {
-    const image = document.createElement("img");
-    image.src = meal.strMealThumb;
-    image.alt = meal.strMeal;
-    thumb.appendChild(image);
-  } else {
-    thumb.textContent = getRecipeEmoji(meal);
-  }
-
-  const info = document.createElement("div");
-  info.className = "saved-info";
-
-  const title = document.createElement("h3");
-  title.textContent = meal.strMeal;
-
-  const meta = document.createElement("p");
-  meta.textContent = [meal.strArea, meal.strCategory, buildRatingLabel(meal.idMeal)]
-    .filter(Boolean)
-    .join(" • ");
-
-  const actions = document.createElement("div");
-  actions.className = "saved-actions";
-
-  const viewBtn = document.createElement("button");
-  viewBtn.type = "button";
-  viewBtn.textContent = "View";
-  viewBtn.addEventListener("click", () => {
-    closeSavedPanel();
-    openRecipeModal(meal);
-  });
-
-  const removeBtn = document.createElement("button");
-  removeBtn.type = "button";
-  removeBtn.textContent = "Remove";
-  removeBtn.addEventListener("click", () => {
-    state.favorites.delete(meal.idMeal);
-    persistLibrary();
-    renderSavedPanel();
-    renderRecipes();
-    if (state.currentMeal?.idMeal === meal.idMeal) {
-      renderFavoriteState();
-    }
-  });
-
-  actions.append(viewBtn, removeBtn);
-  info.append(title, meta, actions);
-  item.append(thumb, info);
-
-  return item;
-}
-
-function renderPlanner() {
-  elements.plannerGrid.innerHTML = "";
-  elements.plannerGrid.appendChild(document.createElement("span"));
-
-  DAYS.forEach((day) => {
-    const heading = document.createElement("div");
-    heading.className = "planner-day";
-    heading.textContent = day;
-    elements.plannerGrid.appendChild(heading);
-  });
-
-  MEAL_TYPES.forEach((mealType) => {
-    const label = document.createElement("div");
-    label.className = "planner-meal";
-    label.textContent = mealType;
-    elements.plannerGrid.appendChild(label);
-
-    DAYS.forEach((day) => {
-      const key = buildPlanKey(day, mealType);
-      const meal = state.mealPlan[key];
-      elements.plannerGrid.appendChild(createPlannerCell(day, mealType, meal));
-    });
-  });
-}
-
-function createPlannerCell(day, mealType, meal) {
-  const cell = document.createElement("button");
-  cell.className = meal ? "planner-cell filled" : "planner-cell";
-  cell.type = "button";
-
-  if (meal) {
-    const name = document.createElement("strong");
-    name.textContent = meal.strMeal;
-
-    const meta = document.createElement("span");
-    meta.textContent = [meal.strArea, meal.strCategory].filter(Boolean).join(" • ");
-
-    const remove = document.createElement("span");
-    remove.className = "planner-remove";
-    remove.textContent = "Remove";
-
-    cell.append(name, meta, remove);
-  } else {
-    const empty = document.createElement("span");
-    empty.textContent = state.currentMeal ? "Add current recipe" : "Open a recipe first";
-    cell.appendChild(empty);
-  }
-
-  cell.addEventListener("click", () => handlePlannerSlot(day, mealType, meal));
-  return cell;
-}
-
-function handlePlannerSlot(day, mealType, meal) {
-  const key = buildPlanKey(day, mealType);
-
-  if (meal) {
-    delete state.mealPlan[key];
-    persistLibrary();
-    renderPlanner();
-    showToast("Removed from meal plan.");
-    return;
-  }
-
-  if (!state.currentMeal) {
-    showToast("Open a recipe, then choose a planner slot.");
-    return;
-  }
-
-  state.mealPlan[key] = state.currentMeal;
-  persistLibrary();
-  renderPlanner();
-  showToast(`Added to ${day} ${mealType.toLowerCase()}.`);
-}
-
-function clearMealPlan() {
-  state.mealPlan = {};
-  persistLibrary();
-  renderPlanner();
-  showToast("Meal plan cleared.");
-}
-
-function buildPlanKey(day, mealType) {
-  return `${day}_${mealType.toLowerCase()}`;
-}
-
-function generateShoppingList() {
-  const plannedMeals = Object.values(state.mealPlan).filter(Boolean);
-
-  if (!plannedMeals.length) {
-    showToast("Add recipes to the meal plan first.");
-    return;
-  }
-
-  const grouped = new Map();
-
-  plannedMeals.forEach((meal) => {
-    extractIngredients(meal).forEach((ingredient) => {
-      const key = ingredient.name.toLowerCase();
-      const existing = grouped.get(key) || {
-        id: key,
-        name: ingredient.name,
-        amounts: [],
-        recipes: new Set(),
-        checked: false,
+// ════════════════════════════════════════
+      // CONFIG & STATE
+      // ════════════════════════════════════════
+      const API = "https://www.themealdb.com/api/json/v1/1";
+      const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
+
+      const state = {
+        meals: [],
+        filteredMeals: [],
+        page: 0,
+        pageSize: 9,
+        loading: false,
+        activeArea: null,
+        activeCategory: null,
+        favorites: new Map(), // idMeal -> meal
+        notes: {}, // idMeal -> string
+        ratings: {}, // idMeal -> 1-5
+        shopList: [], // [{name, amount, checked}]
+        mealPlan: {}, // "Mon_dinner" -> meal obj
+        currentMeal: null,
+        servings: 4,
+        baseServings: 4,
+        ingredients: [], // for ingredient search
+        currentView: "grid",
+        // cooking mode
+        cookSteps: [],
+        cookStep: 0,
+        cookTimer: null,
+        cookInterval: null,
       };
 
-      if (ingredient.measure) existing.amounts.push(ingredient.measure);
-      existing.recipes.add(meal.strMeal);
-      grouped.set(key, existing);
-    });
-  });
+      // ════════════════════════════════════════
+      // EMOJI HELPER
+      // ════════════════════════════════════════
+      const EMOJIS = [
+        "🍝",
+        "🌮",
+        "🍜",
+        "🥗",
+        "🍲",
+        "🥘",
+        "🍛",
+        "🍣",
+        "🥙",
+        "🍱",
+        "🥪",
+        "🍖",
+        "🥩",
+        "🍔",
+        "🍰",
+        "🍞",
+        "🐟",
+      ];
+      function getEmoji(t = "") {
+        t = t.toLowerCase();
+        if (t.includes("pasta") || t.includes("spaghetti")) return "🍝";
+        if (t.includes("taco") || t.includes("burrito")) return "🌮";
+        if (t.includes("curry") || t.includes("tikka")) return "🍛";
+        if (t.includes("sushi") || t.includes("salmon")) return "🍣";
+        if (t.includes("soup") || t.includes("chowder")) return "🍲";
+        if (t.includes("salad") || t.includes("slaw")) return "🥗";
+        if (t.includes("pizza")) return "🍕";
+        if (t.includes("burger")) return "🍔";
+        if (t.includes("cake") || t.includes("brownie")) return "🍰";
+        if (t.includes("rice")) return "🍚";
+        if (t.includes("bread")) return "🍞";
+        if (t.includes("noodle") || t.includes("ramen")) return "🍜";
+        if (t.includes("steak") || t.includes("beef")) return "🥩";
+        if (t.includes("chicken")) return "🍗";
+        if (t.includes("fish") || t.includes("shrimp")) return "🐟";
+        return EMOJIS[t.charCodeAt(0) % EMOJIS.length] || "🍽️";
+      }
 
-  state.shoppingList = Array.from(grouped.values()).map((item) => ({
-    id: item.id,
-    name: item.name,
-    amount: [...new Set(item.amounts)].join(" + ") || "as needed",
-    recipes: Array.from(item.recipes),
-    checked: false,
-  }));
+      // ════════════════════════════════════════
+      // STORAGE
+      // ════════════════════════════════════════
+      function save(key, val) {
+        try {
+          localStorage.setItem(key, JSON.stringify(val));
+        } catch (e) {}
+      }
+      function load(key, def) {
+        try {
+          const r = localStorage.getItem(key);
+          return r ? JSON.parse(r) : def;
+        } catch (e) {
+          return def;
+        }
+      }
 
-  persistLibrary();
-  closePlanner();
-  openShoppingList();
-  showToast("Shopping list generated from your plan.");
-}
+      function persist() {
+        save("sv_favs", Array.from(state.favorites.values()));
+        save("sv_notes", state.notes);
+        save("sv_ratings", state.ratings);
+        save("sv_shop", state.shopList);
+        save("sv_plan", state.mealPlan);
+      }
+      function hydrate() {
+        const favs = load("sv_favs", []);
+        favs.forEach((r) => state.favorites.set(r.idMeal, r));
+        state.notes = load("sv_notes", {});
+        state.ratings = load("sv_ratings", {});
+        state.shopList = load("sv_shop", []);
+        state.mealPlan = load("sv_plan", {});
+        updateFavCount();
+        updateShopCount();
+        // theme
+        const theme = load("sv_theme", "light");
+        if (theme === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+          document.getElementById("themeBtn").textContent = "☀️";
+        }
+      }
 
-function renderShoppingList() {
-  elements.shoppingList.innerHTML = "";
-  elements.shoppingEmpty.hidden = state.shoppingList.length > 0;
+      // ════════════════════════════════════════
+      // THEME
+      // ════════════════════════════════════════
+      function toggleTheme() {
+        const d = document.documentElement;
+        const btn = document.getElementById("themeBtn");
+        if (d.getAttribute("data-theme") === "dark") {
+          d.removeAttribute("data-theme");
+          btn.textContent = "🌙";
+          save("sv_theme", "light");
+        } else {
+          d.setAttribute("data-theme", "dark");
+          btn.textContent = "☀️";
+          save("sv_theme", "dark");
+        }
+      }
 
-  state.shoppingList.forEach((item) => {
-    elements.shoppingList.appendChild(createShoppingItem(item));
-  });
-}
+      // ════════════════════════════════════════
+      // API HELPERS
+      // ════════════════════════════════════════
+      async function apiFetch(url) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      }
+      async function searchByName(q) {
+        const d = await apiFetch(
+          `${API}/search.php?s=${encodeURIComponent(q)}`,
+        );
+        return d.meals || [];
+      }
+      async function filterByArea(a) {
+        const d = await apiFetch(
+          `${API}/filter.php?a=${encodeURIComponent(a)}`,
+        );
+        return d.meals || [];
+      }
+      async function filterByCat(c) {
+        const d = await apiFetch(
+          `${API}/filter.php?c=${encodeURIComponent(c)}`,
+        );
+        return d.meals || [];
+      }
+      async function filterByIngr(i) {
+        const d = await apiFetch(
+          `${API}/filter.php?i=${encodeURIComponent(i)}`,
+        );
+        return d.meals || [];
+      }
+      async function getById(id) {
+        const d = await apiFetch(`${API}/lookup.php?i=${id}`);
+        return d.meals ? d.meals[0] : null;
+      }
+      async function getRandom() {
+        const d = await apiFetch(`${API}/random.php`);
+        return d.meals ? d.meals[0] : null;
+      }
+      async function getCategories() {
+        const d = await apiFetch(`${API}/categories.php`);
+        return d.categories || [];
+      }
 
-function createShoppingItem(item) {
-  const row = document.createElement("label");
-  row.className = item.checked ? "shopping-item checked" : "shopping-item";
+      function extractIngredients(meal) {
+        const arr = [];
+        for (let i = 1; i <= 20; i++) {
+          const nm = meal[`strIngredient${i}`];
+          const ms = meal[`strMeasure${i}`];
+          if (nm && nm.trim())
+            arr.push({ name: nm.trim(), amount: (ms || "").trim() });
+        }
+        return arr;
+      }
 
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = item.checked;
-  checkbox.addEventListener("change", () => {
-    item.checked = checkbox.checked;
-    persistLibrary();
-    renderShoppingList();
-  });
+      function parseSteps(instr) {
+        if (!instr) return [];
+        let steps = instr
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 4);
+        if (steps.length <= 2)
+          steps = instr
+            .split(/(?<=[.!?])\s+(?=[A-Z])/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 5);
+        return steps
+          .map((s) => s.replace(/^(step\s*)?\d+[\.\):\-]\s*/i, ""))
+          .filter((s) => s.length > 5)
+          .slice(0, 15);
+      }
 
-  const body = document.createElement("div");
-  const name = document.createElement("strong");
-  name.textContent = item.name;
+      // ════════════════════════════════════════
+      // CATEGORIES BAR
+      // ════════════════════════════════════════
+      async function loadCategories() {
+        try {
+          const cats = await getCategories();
+          const bar = document.getElementById("categoryBar");
+          const lbl = bar.querySelector(".cat-label");
+          bar.innerHTML = "";
+          bar.appendChild(lbl);
+          cats.forEach((cat) => {
+            const btn = document.createElement("button");
+            btn.className = "cat-chip";
+            btn.textContent = cat.strCategory;
+            btn.dataset.category = cat.strCategory;
+            btn.onclick = () => toggleCategoryFilter(btn);
+            bar.appendChild(btn);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
-  const meta = document.createElement("span");
-  meta.textContent = `${item.amount} • ${item.recipes.join(", ")}`;
+      // ════════════════════════════════════════
+      // SEARCH
+      // ════════════════════════════════════════
+      async function startSearch() {
+        const q = document.getElementById("searchInput").value.trim();
+        if (!q || state.loading) return;
+        clearFilters();
+        await runSearch(() => searchByName(q));
+      }
+      function quickSearch(term) {
+        document.getElementById("searchInput").value = term;
+        startSearch();
+      }
+      function scrollToTop() {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
 
-  body.append(name, meta);
-  row.append(checkbox, body);
+      async function loadRandom() {
+        showLoader(true);
+        try {
+          const meal = await getRandom();
+          if (meal) {
+            state.meals = [meal];
+            state.filteredMeals = [meal];
+            renderFull();
+            openModal(meal);
+          }
+        } catch (e) {
+          showToast("⚠️", "Failed to load random recipe");
+        } finally {
+          showLoader(false);
+        }
+      }
 
-  return row;
-}
-
-function clearShoppingList() {
-  state.shoppingList = [];
-  persistLibrary();
-  renderShoppingList();
-  showToast("Shopping list cleared.");
-}
-
-function updateShopCount() {
-  const remaining = state.shoppingList.filter((item) => !item.checked).length;
-  elements.shopCount.textContent = remaining;
-}
-
-function startCookingMode() {
-  if (!state.currentMeal) return;
-
-  const steps = parseInstructions(state.currentMeal.strInstructions);
-
-  if (!steps.length) {
-    showToast("No cooking steps are available for this recipe.");
-    return;
-  }
-
-  state.cookSteps = steps;
-  state.cookStep = 0;
-  elements.cookTitle.textContent = state.currentMeal.strMeal;
-  closeRecipeModal();
-  elements.cookOverlay.classList.add("open");
-  document.body.style.overflow = "hidden";
-  renderCookingStep();
-}
-
-function exitCookingMode() {
-  elements.cookOverlay.classList.remove("open");
-  resetTimer();
-  restoreBodyScroll();
-}
-
-function renderCookingStep() {
-  const total = state.cookSteps.length;
-  const index = state.cookStep;
-
-  elements.cookProgress.innerHTML = "";
-
-  state.cookSteps.forEach((_, stepIndex) => {
-    const pip = document.createElement("span");
-    pip.className = "cook-pip";
-    pip.classList.toggle("done", stepIndex < index);
-    pip.classList.toggle("active", stepIndex === index);
-    elements.cookProgress.appendChild(pip);
-  });
-
-  elements.cookStepLabel.textContent = `Step ${index + 1} of ${total}`;
-  elements.cookStepText.textContent = state.cookSteps[index];
-  elements.cookPrevBtn.disabled = index === 0;
-  elements.cookNextBtn.textContent = index === total - 1 ? "Finish" : "Next step";
-}
-
-function moveCookStep(direction) {
-  const nextStep = state.cookStep + direction;
-
-  if (nextStep < 0) return;
-
-  if (nextStep >= state.cookSteps.length) {
-    exitCookingMode();
-    showToast("Recipe complete. Enjoy!");
-    return;
-  }
-
-  state.cookStep = nextStep;
-  renderCookingStep();
-}
-
-function setTimer(minutes) {
-  timerSeconds = minutes * 60;
-  timerRunning = false;
-  stopTimerInterval();
-  renderTimer();
-  elements.timerStartBtn.textContent = "Start";
-}
-
-function toggleTimer() {
-  if (!timerSeconds) {
-    setTimer(5);
-  }
-
-  timerRunning = !timerRunning;
-  elements.timerStartBtn.textContent = timerRunning ? "Pause" : "Start";
-
-  if (timerRunning) {
-    timerInterval = window.setInterval(tickTimer, 1000);
-  } else {
-    stopTimerInterval();
-  }
-}
-
-function tickTimer() {
-  timerSeconds = Math.max(0, timerSeconds - 1);
-  renderTimer();
-
-  if (timerSeconds === 0) {
-    stopTimerInterval();
-    timerRunning = false;
-    elements.timerStartBtn.textContent = "Start";
-    showToast("Timer finished.");
-  }
-}
-
-function resetTimer() {
-  timerSeconds = 0;
-  timerRunning = false;
-  stopTimerInterval();
-  renderTimer();
-  elements.timerStartBtn.textContent = "Start";
-}
-
-function stopTimerInterval() {
-  window.clearInterval(timerInterval);
-  timerInterval = null;
-}
-
-function renderTimer() {
-  const minutes = String(Math.floor(timerSeconds / 60)).padStart(2, "0");
-  const seconds = String(timerSeconds % 60).padStart(2, "0");
-  elements.timerDisplay.textContent = `${minutes}:${seconds}`;
-}
-
-function extractIngredients(meal) {
-  const ingredients = [];
-
-  for (let index = 1; index <= 20; index += 1) {
-    const name = meal[`strIngredient${index}`];
-    const measure = meal[`strMeasure${index}`];
-
-    if (name && name.trim()) {
-      ingredients.push({
-        name: name.trim(),
-        measure: measure ? measure.trim() : "",
+      // INGREDIENT SEARCH
+      function toggleIngrSearch() {
+        const bar = document.getElementById("ingrSearchBar");
+        bar.classList.toggle("visible");
+        if (bar.classList.contains("visible"))
+          document.getElementById("ingrInput").focus();
+      }
+      function addIngredient() {
+        const inp = document.getElementById("ingrInput");
+        const val = inp.value.trim();
+        if (!val || state.ingredients.includes(val)) return;
+        state.ingredients.push(val);
+        inp.value = "";
+        renderIngrTags();
+      }
+      function removeIngredient(i) {
+        state.ingredients.splice(i, 1);
+        renderIngrTags();
+      }
+      function renderIngrTags() {
+        document.getElementById("ingrTags").innerHTML = state.ingredients
+          .map(
+            (t, i) =>
+              `<span class="ingr-tag">${t}<button onclick="removeIngredient(${i})">×</button></span>`,
+          )
+          .join("");
+      }
+      document.getElementById("ingrInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addIngredient();
       });
-    }
-  }
 
-  if (!ingredients.length && String(meal.idMeal).startsWith("starter")) {
-    return [
-      { name: "Main ingredient", measure: "1 portion" },
-      { name: "Seasoning", measure: "to taste" },
-      { name: "Fresh garnish", measure: "as needed" },
-    ];
-  }
+      async function searchByIngredients() {
+        if (!state.ingredients.length) {
+          showToast("⚠️", "Add at least one ingredient");
+          return;
+        }
+        clearFilters();
+        // Search for first ingredient then intersect locally
+        const main = state.ingredients[0];
+        await runSearch(() => filterByIngr(main), true);
+      }
 
-  return ingredients;
-}
+      async function toggleAreaFilter(btn) {
+        const area = btn.dataset.area;
+        clearFilters();
+        if (state.activeArea === area) {
+          state.activeArea = null;
+          resetGrid();
+          return;
+        }
+        state.activeArea = area;
+        btn.classList.add("active");
+        document.getElementById("searchInput").value = "";
+        await runSearch(() => filterByArea(area), true);
+      }
 
-function parseInstructions(instructions = "") {
-  if (!instructions.trim()) return [];
+      async function toggleCategoryFilter(btn) {
+        const cat = btn.dataset.category;
+        clearFilters();
+        if (state.activeCategory === cat) {
+          state.activeCategory = null;
+          resetGrid();
+          return;
+        }
+        state.activeCategory = cat;
+        btn.classList.add("active");
+        document.getElementById("searchInput").value = "";
+        await runSearch(() => filterByCat(cat), true);
+      }
 
-  const lineSteps = instructions
-    .split(/\r?\n/)
-    .map((step) => step.trim())
-    .filter((step) => step.length > 4);
+      function clearFilters() {
+        state.activeArea = null;
+        state.activeCategory = null;
+        document
+          .querySelectorAll(".filter-chip")
+          .forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll(".cat-chip")
+          .forEach((c) => c.classList.remove("active"));
+      }
 
-  const steps =
-    lineSteps.length > 1
-      ? lineSteps
-      : instructions
-          .split(/(?<=[.!?])\s+/)
-          .map((step) => step.trim())
-          .filter((step) => step.length > 5);
+      function resetGrid() {
+        state.meals = [];
+        state.filteredMeals = [];
+        state.page = 0;
+        document.getElementById("recipeGrid").innerHTML = "";
+        document.getElementById("sectionHeader").style.display = "none";
+        document.getElementById("emptyState").classList.remove("visible");
+      }
 
-  return steps
-    .map((step) => step.replace(/^(step\s*)?\d+[\.\):\-]\s*/i, ""))
-    .slice(0, 12);
-}
+      async function runSearch(fetchFn, needsDetail = false) {
+        resetGrid();
+        showLoader(true);
+        try {
+          const meals = await fetchFn();
+          if (!meals.length) {
+            document.getElementById("emptyState").classList.add("visible");
+            document.getElementById("sectionHeader").style.display = "flex";
+            document.getElementById("resultCount").textContent = "(0 found)";
+            return;
+          }
+          state.meals = meals;
+          state.filteredMeals = [...meals];
+          applySort();
+          document.getElementById("sectionHeader").style.display = "flex";
+          document.getElementById("resultCount").textContent =
+            `(${meals.length} found)`;
+          renderFull();
+        } catch (e) {
+          console.error(e);
+          showToast("⚠️", "Failed to fetch recipes. Try again.");
+        } finally {
+          showLoader(false);
+        }
+      }
 
-function buildCountLabel(count) {
-  return `${count} ${count === 1 ? "recipe" : "recipes"}`;
-}
+      function renderFull() {
+        state.page = 0;
+        document.getElementById("recipeGrid").innerHTML = "";
+        renderPage();
+      }
 
-function setActiveButton(selector, activeButton) {
-  document.querySelectorAll(selector).forEach((button) => {
-    button.classList.toggle("active", button === activeButton);
-  });
-}
+      // ════════════════════════════════════════
+      // RENDER
+      // ════════════════════════════════════════
+      function setView(v) {
+        state.currentView = v;
+        const grid = document.getElementById("recipeGrid");
+        grid.className = "recipe-grid" + (v === "list" ? " list-view" : "");
+        document
+          .getElementById("gridViewBtn")
+          .classList.toggle("active", v === "grid");
+        document
+          .getElementById("listViewBtn")
+          .classList.toggle("active", v === "list");
+      }
 
-function clearFilterSelection() {
-  state.activeArea = "";
-  state.activeCategory = "";
-  setActiveButton(".filter-chip", null);
-  setActiveButton(".cat-chip", null);
-}
+      function renderPage() {
+        const grid = document.getElementById("recipeGrid");
+        const start = state.page * state.pageSize;
+        const slice = state.filteredMeals.slice(start, start + state.pageSize);
 
-function getRecipeEmoji(meal) {
-  const text = `${meal.strMeal || ""} ${meal.strCategory || ""}`.toLowerCase();
+        // Show skeleton first
+        const skeletons = [];
+        if (start === 0 && slice.length === 0) {
+          return;
+        }
+        slice.forEach((_, i) => {
+          const sk = buildSkeleton();
+          sk.style.animationDelay = i * 60 + "ms";
+          grid.appendChild(sk);
+          skeletons.push(sk);
+        });
 
-  if (text.includes("pasta") || text.includes("spaghetti")) return "🍝";
-  if (text.includes("taco") || text.includes("burrito")) return "🌮";
-  if (text.includes("curry") || text.includes("tikka")) return "🍛";
-  if (text.includes("salmon") || text.includes("fish")) return "🐟";
-  if (text.includes("cake") || text.includes("dessert")) return "🍰";
-  if (text.includes("chicken")) return "🍗";
-  return "🍽️";
-}
+        // Then replace with real cards
+        setTimeout(() => {
+          skeletons.forEach((sk, i) => {
+            const meal = slice[i];
+            if (!meal) return;
+            const card = buildCard(meal, i * 65);
+            grid.replaceChild(card, sk);
+          });
+        }, 200);
+        state.page++;
+      }
 
-function setLoading(isLoading, label = "Searching...") {
-  state.loading = isLoading;
-  elements.loader.hidden = !isLoading;
-  elements.recipeGrid.hidden = isLoading;
-  elements.searchBtn.disabled = isLoading;
-  elements.randomBtn.disabled = isLoading;
-  elements.ingredientSearchBtn.disabled = isLoading;
-  elements.searchBtn.textContent = isLoading ? label : "Search";
-}
+      function buildSkeleton() {
+        const d = document.createElement("div");
+        d.className = "skeleton-card";
+        d.innerHTML = `<div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line w40"></div><div class="skeleton-line w80"></div><div class="skeleton-line w60"></div></div>`;
+        return d;
+      }
 
-function quickSearch(term) {
-  elements.searchInput.value = term;
-  startSearch();
-}
+      function buildCard(meal, delay = 0) {
+        const isFav = state.favorites.has(meal.idMeal);
+        const hasNote = !!state.notes[meal.idMeal];
+        const rating = state.ratings[meal.idMeal] || 0;
+        const div = document.createElement("div");
+        div.className = "recipe-card";
+        div.style.animationDelay = delay + "ms";
+        div.setAttribute("draggable", "true");
+        div.dataset.mealId = meal.idMeal;
+        div.onclick = (e) => {
+          if (
+            !e.target.closest(".fav-toggle") &&
+            !e.target.closest(".drag-handle")
+          )
+            openModal(meal);
+        };
+        div.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("mealId", meal.idMeal);
+          div.classList.add("dragging");
+        });
+        div.addEventListener("dragend", () => div.classList.remove("dragging"));
 
-async function loadRandom() {
-  if (state.loading) return;
+        const thumb = meal.strMealThumb || "";
+        const area = meal.strArea || "";
+        const cat = meal.strCategory || "";
+        const starsHtml = rating ? "⭐".repeat(rating) : "";
 
-  clearFilterSelection();
-  setLoading(true, "Loading...");
+        div.innerHTML = `
+    <div class="card-img-wrap">
+      ${thumb ? `<img src="${thumb}/preview" alt="${meal.strMeal}" loading="lazy" onerror="this.style.display='none'">` : ""}
+      ${!thumb ? `<div class="food-emoji-placeholder">${getEmoji(meal.strMeal)}</div>` : ""}
+      ${area ? `<div class="card-area-badge">🌍 ${area}</div>` : ""}
+      <button class="fav-toggle ${isFav ? "active" : ""}" onclick="toggleFav('${meal.idMeal}',this)">${isFav ? "♥" : "♡"}</button>
+      ${cat ? `<div class="card-category-badge">${cat}</div>` : ""}
+    </div>
+    <div class="card-body">
+      <div class="card-cuisine">${area || cat || "World Cuisine"}</div>
+      <div class="card-title">${meal.strMeal}</div>
+      <div class="card-desc">${meal.strInstructions ? meal.strInstructions.slice(0, 100) + "…" : "Tap to view full recipe & ingredients."}</div>
+      <div class="card-meta">
+        <span class="card-tag">${cat || "Recipe"}</span>
+        ${starsHtml ? `<span style="font-size:12px">${starsHtml}</span>` : ""}
+        ${hasNote ? `<span class="card-note-indicator">📝 Note</span>` : ""}
+      </div>
+    </div>
+    <button class="drag-handle" title="Drag to meal planner">⠿</button>
+  `;
+        return div;
+      }
 
-  try {
-    const meal = await fetchRandomRecipe();
+      // ════════════════════════════════════════
+      // MODAL
+      // ════════════════════════════════════════
+      let modalMeal = null;
 
-    if (!meal) {
-      showToast("No random recipe was returned.");
-      return;
-    }
+      async function openModal(meal) {
+        let full = meal;
+        if (!meal.strInstructions && meal.idMeal) {
+          try {
+            showLoader(true);
+            full = (await getById(meal.idMeal)) || meal;
+            const idx = state.meals.findIndex((m) => m.idMeal === meal.idMeal);
+            if (idx !== -1) state.meals[idx] = full;
+            const idx2 = state.filteredMeals.findIndex(
+              (m) => m.idMeal === meal.idMeal,
+            );
+            if (idx2 !== -1) state.filteredMeals[idx2] = full;
+          } catch (e) {
+          } finally {
+            showLoader(false);
+          }
+        }
+        modalMeal = full;
+        state.servings = 4;
+        state.baseServings = 4;
 
-    setResults([meal], {
-      title: "Random pick",
-      countLabel: "1 recipe",
-    });
-    openRecipeModal(meal);
-  } catch (error) {
-    showToast("Could not load a random recipe.");
-  } finally {
-    setLoading(false);
-  }
-}
+        const isFav = state.favorites.has(full.idMeal);
+        const ings = extractIngredients(full);
+        const steps = parseSteps(full.strInstructions);
 
-function showToast(message) {
-  elements.toast.textContent = message;
-  elements.toast.classList.add("visible");
+        // Header image
+        const hdr = document.getElementById("modalHeader");
+        hdr
+          .querySelectorAll("img.modal-bg,.food-emoji-modal")
+          .forEach((el) => el.remove());
+        if (full.strMealThumb) {
+          const img = document.createElement("img");
+          img.className = "modal-bg";
+          img.src = full.strMealThumb;
+          img.alt = full.strMeal;
+          img.style.cssText =
+            "width:100%;height:100%;object-fit:cover;position:absolute;inset:0";
+          hdr.insertBefore(img, hdr.firstChild);
+        } else {
+          const em = document.createElement("div");
+          em.className = "food-emoji-modal";
+          em.style.cssText =
+            "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:90px";
+          em.textContent = getEmoji(full.strMeal);
+          hdr.insertBefore(em, hdr.firstChild);
+        }
 
-  window.clearTimeout(showToast.timeoutId);
-  showToast.timeoutId = window.setTimeout(() => {
-    elements.toast.classList.remove("visible");
-  }, 2400);
-}
+        document.getElementById("modalCuisine").textContent = full.strArea
+          ? full.strArea + " Cuisine"
+          : full.strCategory || "";
+        document.getElementById("modalTitle").textContent = full.strMeal;
+        const tags = [
+          full.strCategory,
+          full.strArea,
+          ...(full.strTags ? full.strTags.split(",") : []),
+        ].filter(Boolean);
+        document.getElementById("modalTags").innerHTML = tags
+          .map((t) => `<span class="modal-tag">${t.trim()}</span>`)
+          .join("");
+        document.getElementById("modalArea").textContent = full.strArea || "—";
+        document.getElementById("modalIngCount").textContent = ings.length;
+        document.getElementById("modalCategory").textContent =
+          full.strCategory || "—";
+        document.getElementById("scalerVal").textContent = state.servings;
 
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+        // Star rating
+        const savedRating = state.ratings[full.idMeal] || 0;
+        renderStars(savedRating);
 
-document.addEventListener("DOMContentLoaded", init);
+        // Ingredients with checkboxes + add to shopping list
+        renderModalIngredients(ings);
+
+        // Steps
+        renderModalSteps(steps);
+
+        // Links
+        const linksEl = document.getElementById("modalLinks");
+        linksEl.innerHTML = "";
+        if (full.strYoutube)
+          linksEl.innerHTML += `<a class="youtube-link" href="${full.strYoutube}" target="_blank">▶ Watch on YouTube</a>`;
+        if (full.strSource)
+          linksEl.innerHTML += `<a class="source-link" href="${full.strSource}" target="_blank">🔗 Source Recipe</a>`;
+
+        // Notes
+        document.getElementById("notesArea").value =
+          state.notes[full.idMeal] || "";
+        document.getElementById("notesSavedMsg").classList.remove("show");
+
+        // Fav btn
+        const fb = document.getElementById("modalFavBtn");
+        fb.className = "modal-fav-btn" + (isFav ? " active" : "");
+        fb.innerHTML = isFav ? "♥ Saved" : "♡ Save";
+
+        document.getElementById("modalOverlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function renderModalIngredients(ings) {
+        const ratio = state.servings / state.baseServings;
+        document.getElementById("modalIngredients").innerHTML = ings
+          .map((ing, i) => {
+            const scaledAmt = scaleAmount(ing.amount, ratio);
+            const inShop = state.shopList.some((s) => s.name === ing.name);
+            return `<div class="ingredient-item" id="ing_${i}" onclick="toggleIngredientCheck(${i})">
+      <div class="ingredient-check" id="ingcheck_${i}"></div>
+      <span class="ingredient-amount">${scaledAmt}</span>
+      <span class="ingredient-name">${ing.name}</span>
+      <button class="add-to-list-btn ${inShop ? "added" : ""}" onclick="event.stopPropagation();addIngToShop(${i},'${ing.name.replace(/'/g, "\\'")}','${scaledAmt.replace(/'/g, "\\'")}')" title="Add to shopping list">${inShop ? "✓ Listed" : "+ List"}</button>
+    </div>`;
+          })
+          .join("");
+      }
+
+      function renderModalSteps(steps) {
+        document.getElementById("modalSteps").innerHTML = steps.length
+          ? steps
+              .map(
+                (s, i) =>
+                  `<li class="step-item" id="step_${i}" onclick="toggleStep(${i})"><div class="step-num">${i + 1}</div><div class="step-text">${s}</div></li>`,
+              )
+              .join("")
+          : `<li class="step-item"><div class="step-num">1</div><div class="step-text">${modalMeal.strInstructions || "No instructions available."}</div></li>`;
+      }
+
+      function toggleIngredientCheck(i) {
+        const item = document.getElementById("ing_" + i);
+        const check = document.getElementById("ingcheck_" + i);
+        item.classList.toggle("checked");
+        check.textContent = item.classList.contains("checked") ? "✓" : "";
+      }
+      function toggleStep(i) {
+        document.getElementById("step_" + i)?.classList.toggle("done");
+      }
+
+      function scaleAmount(amount, ratio) {
+        if (!amount || ratio === 1) return amount;
+        // Replace numbers in amount string
+        return amount.replace(/[\d.\/]+/g, (match) => {
+          // Handle fractions like 1/2
+          if (match.includes("/")) {
+            const [a, b] = match.split("/");
+            return roundNice((parseFloat(a) / parseFloat(b)) * ratio);
+          }
+          return roundNice(parseFloat(match) * ratio);
+        });
+      }
+      function roundNice(n) {
+        if (n === Math.floor(n)) return n.toString();
+        return (Math.round(n * 4) / 4).toFixed(2).replace(/\.?0+$/, "");
+      }
+
+      function changeServings(delta) {
+        state.servings = Math.max(1, Math.min(20, state.servings + delta));
+        document.getElementById("scalerVal").textContent = state.servings;
+        if (modalMeal) {
+          const ings = extractIngredients(modalMeal);
+          renderModalIngredients(ings);
+        }
+      }
+
+      // ════════════════════════════════════════
+      // STARS
+      // ════════════════════════════════════════
+      function renderStars(val) {
+        document.querySelectorAll(".star").forEach((s, i) => {
+          s.classList.toggle("active", i < val);
+        });
+      }
+      document.getElementById("starRating").addEventListener("click", (e) => {
+        const star = e.target.closest(".star");
+        if (!star || !modalMeal) return;
+        const val = parseInt(star.dataset.val);
+        state.ratings[modalMeal.idMeal] = val;
+        renderStars(val);
+        persist();
+        // Refresh card
+        const card = document.querySelector(
+          `[data-meal-id="${modalMeal.idMeal}"]`,
+        );
+        if (card) {
+          const m = state.meals.find((m) => m.idMeal === modalMeal.idMeal);
+          if (m) {
+            const nc = buildCard(m);
+            card.replaceWith(nc);
+          }
+        }
+      });
+      document
+        .getElementById("starRating")
+        .addEventListener("mouseover", (e) => {
+          const star = e.target.closest(".star");
+          if (!star) return;
+          const val = parseInt(star.dataset.val);
+          document
+            .querySelectorAll(".star")
+            .forEach(
+              (s, i) =>
+                (s.style.color = i < val ? "var(--gold-light)" : "#ddd"),
+            );
+        });
+      document
+        .getElementById("starRating")
+        .addEventListener("mouseleave", () => {
+          renderStars(modalMeal ? state.ratings[modalMeal.idMeal] || 0 : 0);
+        });
+
+      // ════════════════════════════════════════
+      // NOTES
+      // ════════════════════════════════════════
+      function saveNote() {
+        if (!modalMeal) return;
+        state.notes[modalMeal.idMeal] =
+          document.getElementById("notesArea").value;
+        persist();
+        const msg = document.getElementById("notesSavedMsg");
+        msg.classList.add("show");
+        setTimeout(() => msg.classList.remove("show"), 2000);
+        // refresh fav panel if open
+        renderFavPanel();
+      }
+
+      // ════════════════════════════════════════
+      // MODAL CLOSE
+      // ════════════════════════════════════════
+      function closeModal() {
+        document.getElementById("modalOverlay").classList.remove("open");
+        document.body.style.overflow = "";
+        modalMeal = null;
+      }
+      function handleModalClick(e) {
+        if (e.target === document.getElementById("modalOverlay")) closeModal();
+      }
+      function toggleModalFav() {
+        if (!modalMeal) return;
+        toggleFavById(modalMeal.idMeal);
+        const isFav = state.favorites.has(modalMeal.idMeal);
+        const fb = document.getElementById("modalFavBtn");
+        fb.className = "modal-fav-btn" + (isFav ? " active" : "");
+        fb.innerHTML = isFav ? "♥ Saved" : "♡ Save";
+      }
+
+      // ════════════════════════════════════════
+      // FAVORITES
+      // ════════════════════════════════════════
+      function toggleFav(id, btn) {
+        toggleFavById(id);
+        const isFav = state.favorites.has(id);
+        btn.classList.toggle("active", isFav);
+        btn.textContent = isFav ? "♥" : "♡";
+        btn.classList.add("pop");
+        btn.addEventListener(
+          "animationend",
+          () => btn.classList.remove("pop"),
+          { once: true },
+        );
+      }
+      function toggleFavById(id) {
+        const meal =
+          state.meals.find((m) => m.idMeal === id) || state.favorites.get(id);
+        if (!meal) return;
+        if (state.favorites.has(id)) {
+          state.favorites.delete(id);
+          showToast("💔", "Removed from favorites");
+        } else {
+          state.favorites.set(id, meal);
+          showToast("♥", "Saved to favorites!");
+        }
+        persist();
+        updateFavCount();
+        renderFavPanel();
+      }
+      function updateFavCount() {
+        document.getElementById("favCount").textContent = state.favorites.size;
+      }
+      function renderFavPanel() {
+        const body = document.getElementById("favPanelBody");
+        const favs = Array.from(state.favorites.values());
+        if (!favs.length) {
+          body.innerHTML = `<div class="fav-empty">🍽️<br>No saved recipes yet.</div>`;
+          return;
+        }
+        body.innerHTML = favs
+          .map((r) => {
+            const note = state.notes[r.idMeal];
+            const rating = state.ratings[r.idMeal];
+            return `<div class="fav-item" onclick="openModal(${JSON.stringify(r).replace(/"/g, "&quot;")})">
+      ${r.strMealThumb ? `<img class="fav-item-img" src="${r.strMealThumb}/preview" alt="${r.strMeal}" onerror="this.style.display='none'">` : `<div class="fav-item-emoji">${getEmoji(r.strMeal)}</div>`}
+      <div class="fav-item-info">
+        <div class="fav-item-title">${r.strMeal}</div>
+        <div class="fav-item-meta">${r.strArea || ""} ${r.strCategory ? "• " + r.strCategory : ""} ${rating ? "• " + "⭐".repeat(rating) : ""}</div>
+        ${note ? `<div class="fav-item-note">📝 ${note.slice(0, 40)}${note.length > 40 ? "…" : ""}</div>` : ""}
+      </div>
+      <button class="fav-remove" onclick="event.stopPropagation();toggleFavById('${r.idMeal}')" title="Remove">✕</button>
+    </div>`;
+          })
+          .join("");
+      }
+      function toggleFavPanel() {
+        const panel = document.getElementById("favPanel");
+        const backdrop = document.getElementById("panelBackdrop");
+        const isOpen = panel.classList.contains("open");
+        if (!isOpen) renderFavPanel();
+        panel.classList.toggle("open");
+        backdrop.classList.toggle("open");
+        document.body.style.overflow = isOpen ? "" : "hidden";
+      }
+
+      // ════════════════════════════════════════
+      // SHOPPING LIST
+      // ════════════════════════════════════════
+      function addIngToShop(idx, name, amount) {
+        const existing = state.shopList.find((s) => s.name === name);
+        if (!existing) {
+          state.shopList.push({ name, amount, checked: false });
+        }
+        persist();
+        updateShopCount();
+        const btn = document.querySelectorAll(".add-to-list-btn")[idx];
+        if (btn) {
+          btn.textContent = "✓ Listed";
+          btn.classList.add("added");
+        }
+        showToast("🛒", `${name} added to shopping list`);
+      }
+      function updateShopCount() {
+        const el = document.getElementById("shopCount");
+        const n = state.shopList.filter((s) => !s.checked).length;
+        el.textContent = n;
+        el.style.display = n > 0 ? "flex" : "none";
+      }
+      function openShopList() {
+        renderShopList();
+        document.getElementById("shopOverlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+      function closeShopList() {
+        document.getElementById("shopOverlay").classList.remove("open");
+        document.body.style.overflow = "";
+      }
+      function handleShopClick(e) {
+        if (e.target === document.getElementById("shopOverlay"))
+          closeShopList();
+          closeInfoPopup();
+      }
+      function renderShopList() {
+        const body = document.getElementById("shopBody");
+        if (!state.shopList.length) {
+          body.innerHTML = `<div class="shop-empty">Your shopping list is empty.<br>Add ingredients from any recipe.</div>`;
+          return;
+        }
+        // Group by checked status
+        const active = state.shopList.filter((s) => !s.checked);
+        const done = state.shopList.filter((s) => s.checked);
+        const renderItems = (arr) =>
+          arr
+            .map((item, i) => {
+              const realIdx = state.shopList.indexOf(item);
+              return `<div class="shop-item ${item.checked ? "done" : ""}" onclick="toggleShopItem(${realIdx})">
+      <div class="shop-check">${item.checked ? "✓" : ""}</div>
+      <span class="shop-amount">${item.amount || ""}</span>
+      <span class="shop-name">${item.name}</span>
+    </div>`;
+            })
+            .join("");
+        body.innerHTML =
+          renderItems(active) +
+          (done.length
+            ? `<div style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--sand);padding:14px 0 6px">Done</div>` +
+              renderItems(done)
+            : "");
+      }
+      function toggleShopItem(i) {
+        state.shopList[i].checked = !state.shopList[i].checked;
+        persist();
+        updateShopCount();
+        renderShopList();
+      }
+      function clearShopList() {
+        state.shopList = [];
+        persist();
+        updateShopCount();
+        renderShopList();
+      }
+
+      // ════════════════════════════════════════
+      // MEAL PLANNER
+      // ════════════════════════════════════════
+      let pickDayMeal = null,
+        pickDaySelected = null,
+        pickMealTypeSelected = "dinner";
+
+      function openPlanner() {
+        renderPlannerGrid();
+        document.getElementById("plannerOverlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+      function closePlanner() {
+        document.getElementById("plannerOverlay").classList.remove("open");
+        document.body.style.overflow = "";
+      }
+      function handlePlannerClick(e) {
+        if (e.target === document.getElementById("plannerOverlay"))
+          closePlanner();
+      }
+      function clearPlan() {
+        if (confirm("Clear entire meal plan?")) {
+          state.mealPlan = {};
+          persist();
+          renderPlannerGrid();
+        }
+      }
+
+      function renderPlannerGrid() {
+        const grid = document.getElementById("plannerGrid");
+        grid.innerHTML = DAYS.map(
+          (day) => `
+    <div class="day-col">
+      <div class="day-header">${day}</div>
+      ${MEAL_TYPES.map((type) => {
+        const key = `${day}_${type}`;
+        const meal = state.mealPlan[key];
+        return `<div class="day-slot ${meal ? "has-meal" : ""}" id="slot_${key}"
+          ondragover="e=>{e.preventDefault();document.getElementById('slot_${key}').classList.add('drag-over')}"
+          ondragleave="document.getElementById('slot_${key}').classList.remove('drag-over')"
+          ondrop="dropToSlot(event,'${key}')">
+          <div class="meal-type-label">${type}</div>
+          ${
+            meal
+              ? `<div class="planned-meal" onclick="openModal(${JSON.stringify(meal).replace(/"/g, "&quot;")})">
+            ${meal.strMealThumb ? `<img class="planned-meal-img" src="${meal.strMealThumb}/preview" alt="${meal.strMeal}" onerror="this.style.display='none'">` : ""}
+            <div class="planned-meal-name">${meal.strMeal}</div>
+            <button class="planned-meal-remove" onclick="event.stopPropagation();removePlanMeal('${key}')">✕</button>
+          </div>`
+              : `<div class="add-to-plan-prompt">Drop a recipe here</div>`
+          }
+        </div>`;
+      }).join("")}
+    </div>
+  `,
+        ).join("");
+      }
+
+      function dropToSlot(e, key) {
+        e.preventDefault();
+        document.getElementById("slot_" + key)?.classList.remove("drag-over");
+        const id = e.dataTransfer.getData("mealId");
+        const meal =
+          state.meals.find((m) => m.idMeal === id) || state.favorites.get(id);
+        if (!meal) return;
+        state.mealPlan[key] = meal;
+        persist();
+        renderPlannerGrid();
+        showToast("📅", `${meal.strMeal} added to ${key.replace("_", " ")}`);
+      }
+
+      function removePlanMeal(key) {
+        delete state.mealPlan[key];
+        persist();
+        renderPlannerGrid();
+      }
+
+      // Pick day modal (from recipe modal "Plan" button)
+      function openPlanPicker() {
+        if (!modalMeal) return;
+        pickDayMeal = modalMeal;
+        pickDaySelected = null;
+        pickMealTypeSelected = "dinner";
+        // Build day buttons
+        const grid = document.getElementById("pickDayGrid");
+        grid.innerHTML = DAYS.map(
+          (d) =>
+            `<button class="pick-day-btn" data-day="${d}" onclick="selectPickDay(this,'${d}')">${d}</button>`,
+        ).join("");
+        // Meal type buttons
+        document.querySelectorAll(".pick-type-btn").forEach((b) => {
+          b.classList.toggle("active", b.dataset.type === "dinner");
+          b.onclick = () => {
+            document
+              .querySelectorAll(".pick-type-btn")
+              .forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+            pickMealTypeSelected = b.dataset.type;
+          };
+        });
+        document.getElementById("pickDayOverlay").classList.add("open");
+      }
+      function selectPickDay(btn, day) {
+        document
+          .querySelectorAll(".pick-day-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        pickDaySelected = day;
+      }
+      function closePickDay() {
+        document.getElementById("pickDayOverlay").classList.remove("open");
+      }
+      function confirmAddToPlan() {
+        if (!pickDaySelected) {
+          showToast("⚠️", "Please select a day");
+          return;
+        }
+        const key = `${pickDaySelected}_${pickMealTypeSelected}`;
+        state.mealPlan[key] = pickDayMeal;
+        persist();
+        closePickDay();
+        showToast("📅", `Added to ${pickDaySelected} ${pickMealTypeSelected}!`);
+      }
+
+      function generateShopListFromPlan() {
+        const meals = Object.values(state.mealPlan).filter(Boolean);
+        if (!meals.length) {
+          showToast("⚠️", "No meals in plan yet");
+          return;
+        }
+        let added = 0;
+        meals.forEach((meal) => {
+          const ings = extractIngredients(meal);
+          ings.forEach((ing) => {
+            const exists = state.shopList.some((s) => s.name === ing.name);
+            if (!exists) {
+              state.shopList.push({
+                name: ing.name,
+                amount: ing.amount,
+                checked: false,
+              });
+              added++;
+            }
+          });
+        });
+        persist();
+        updateShopCount();
+        closePlanner();
+        openShopList();
+        showToast("🛒", `${added} ingredients added to shopping list`);
+      }
+
+      // ════════════════════════════════════════
+      // COOKING MODE
+      // ════════════════════════════════════════
+      function startCookingMode() {
+        if (!modalMeal) return;
+        const steps = parseSteps(modalMeal.strInstructions);
+        if (!steps.length) {
+          showToast("⚠️", "No step-by-step instructions available");
+          return;
+        }
+        state.cookSteps = steps;
+        state.cookStep = 0;
+        document.getElementById("cookTitle").textContent = modalMeal.strMeal;
+        document.getElementById("cookOverlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+        renderCookIngredients();
+        renderCookStep();
+        closeModal();
+      }
+      function exitCookingMode() {
+        document.getElementById("cookOverlay").classList.remove("open");
+        document.body.style.overflow = "";
+        timerReset();
+      }
+      function renderCookIngredients() {
+        const ings = extractIngredients(modalMeal || {});
+        const el = document.getElementById("cookIngredients");
+        if (!ings.length) {
+          el.style.display = "none";
+          return;
+        }
+        el.style.display = "block";
+        el.innerHTML =
+          `<div class="cook-ingr-title">Ingredients needed</div>` +
+          ings
+            .slice(0, 8)
+            .map(
+              (i) =>
+                `<div class="cook-ingr-item"><span class="cook-ingr-amt">${i.amount}</span>${i.name}</div>`,
+            )
+            .join("") +
+          (ings.length > 8
+            ? `<div class="cook-ingr-item" style="opacity:0.4">+${ings.length - 8} more…</div>`
+            : "");
+      }
+      function renderCookStep() {
+        const steps = state.cookSteps;
+        const i = state.cookStep;
+        // Progress
+        document.getElementById("cookProgress").innerHTML = steps
+          .map(
+            (_, j) =>
+              `<div class="cook-pip ${j < i ? "done" : j === i ? "active" : ""}"></div>`,
+          )
+          .join("");
+        document.getElementById("cookStepNum").textContent =
+          `Step ${i + 1} of ${steps.length}`;
+        document.getElementById("cookStepText").textContent = steps[i];
+        document.getElementById("cookPrev").disabled = i === 0;
+        document.getElementById("cookNext").textContent =
+          i === steps.length - 1 ? "🎉 Done!" : "Next Step →";
+      }
+      function cookNav(d) {
+        const newStep = state.cookStep + d;
+        if (newStep < 0) return;
+        if (newStep >= state.cookSteps.length) {
+          exitCookingMode();
+          showToast("🎉", "Recipe complete! Enjoy your meal!");
+          return;
+        }
+        state.cookStep = newStep;
+        timerReset();
+        renderCookStep();
+      }
+      // Timer
+      let timerSeconds = 0,
+        timerRunning = false,
+        timerInterval = null;
+      function setTimer(mins) {
+        timerReset();
+        timerSeconds = mins * 60;
+        timerRunning = true;
+        renderTimer();
+        timerInterval = setInterval(() => {
+          timerSeconds--;
+          renderTimer();
+          if (timerSeconds <= 0) {
+            timerReset();
+            showToast("⏱", "Timer done!");
+          }
+        }, 1000);
+      }
+      function timerReset() {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        timerSeconds = 0;
+        document.getElementById("cookTimerDisplay").textContent = "—";
+      }
+      function renderTimer() {
+        const m = Math.floor(timerSeconds / 60);
+        const s = timerSeconds % 60;
+        document.getElementById("cookTimerDisplay").textContent =
+          `${m}:${s.toString().padStart(2, "0")}`;
+      }
+
+      // ════════════════════════════════════════
+      // SORT & FILTER
+      // ════════════════════════════════════════
+      function applySort() {
+        const val = document.getElementById("sortSelect").value;
+        let arr = [...state.filteredMeals];
+        if (val === "az")
+          arr.sort((a, b) => a.strMeal.localeCompare(b.strMeal));
+        else if (val === "za")
+          arr.sort((a, b) => b.strMeal.localeCompare(a.strMeal));
+        state.filteredMeals = arr;
+      }
+      function sortRecipes() {
+        renderFull();
+      }
+
+      // ════════════════════════════════════════
+      // INFINITE SCROLL
+      // ════════════════════════════════════════
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries[0].isIntersecting) return;
+          if (state.page * state.pageSize < state.filteredMeals.length)
+            renderPage();
+        },
+        { threshold: 0.5 },
+      );
+      observer.observe(document.getElementById("sentinel"));
+
+      // ════════════════════════════════════════
+      // TOAST & LOADER
+      // ════════════════════════════════════════
+      let toastTimer;
+      function showToast(icon, msg) {
+        clearTimeout(toastTimer);
+        document.getElementById("toastIcon").textContent = icon;
+        document.getElementById("toastMsg").textContent = msg;
+        const t = document.getElementById("toast");
+        t.classList.add("show");
+        toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
+      }
+      function showLoader(v) {
+        state.loading = v;
+        document.getElementById("loader").style.display = v ? "flex" : "none";
+        document.getElementById("searchBtn").disabled = v;
+      }
+
+      // ════════════════════════════════════════
+      // KEYBOARD
+      // ════════════════════════════════════════
+      document
+        .getElementById("searchInput")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") startSearch();
+        });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeModal();
+          closePlanner();
+          closePickDay();
+          closeShopList();
+          if (document.getElementById("cookOverlay").classList.contains("open"))
+            exitCookingMode();
+        }
+      });
+
+
+      // ════════════════════════════════════════
+      // INFO POPUP
+      // ════════════════════════════════════════
+      function showInfoPopup() {
+        document.getElementById("appInfoOverlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+      function closeInfoPopup() {
+        document.getElementById("appInfoOverlay").classList.remove("open");
+        const overlays = [
+          "modalOverlay",
+          "plannerOverlay",
+          "pickDayOverlay",
+          "shopOverlay",
+          "cookOverlay",
+        ];
+        const keepLocked = overlays.some((id) =>
+          document.getElementById(id)?.classList.contains("open"),
+        );
+        if (!keepLocked) document.body.style.overflow = "";
+      }
+      function handleInfoPopupClick(e) {
+        if (e.target.id === "appInfoOverlay") closeInfoPopup();
+      }
+
+      // ════════════════════════════════════════
+      // INIT
+      // ════════════════════════════════════════
+      hydrate();
+      loadCategories();
+      showInfoPopup();

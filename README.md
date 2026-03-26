@@ -1,80 +1,18 @@
 # Savor - Advanced Recipe Finder
 
-Savor is a modern recipe discovery app for searching real dishes, browsing
-cuisines, planning meals, and preparing shopping lists. The project uses
-TheMealDB as its public recipe data source.
+Savor is an advanced recipe discovery app powered by TheMealDB. It includes
+recipe search, cuisine/category browsing, ingredient search, saved recipes,
+ratings, notes, a weekly meal planner, shopping list generation, and cooking
+mode.
 
-## Suggested Project Title
+## Project Structure
 
-**Savor - Advanced Recipe Finder**
+- `index.html`
+- `style.css`
+- `app.js`
 
-This title keeps the existing brand from the original project and clearly tells
-portfolio visitors what the app does.
+## Note
 
-## Day 1 Scope
-
-- Created the main project structure with separate root-level HTML, CSS, and JS
-  files.
-- Built the responsive Savor header, hero search area, cuisine filters, category
-  row, and starter recipe cards.
-- Added the new info button and first-load information popup.
-- Added basic theme toggling, ingredient tag UI, quick-search UI, and toast
-  feedback for interactions that will be connected to live data later.
-
-## Day 2 Scope
-
-- Connected the recipe search form and quick-search chips to TheMealDB.
-- Replaced static starter cards with JavaScript-rendered recipe cards.
-- Added loading, no-results, and network-error feedback.
-- Displayed recipe thumbnails, cuisine/category metadata, and compact result
-  summaries.
-
-## Day 3 Scope
-
-- Added a full recipe detail modal with image header, cuisine/category stats,
-  tags, ingredients, instructions, and external recipe links.
-- Connected each result card's view action to the detail modal.
-- Added random recipe loading from TheMealDB and opened the random result in the
-  modal.
-- Added Escape-key and backdrop closing behavior for recipe details.
-
-## Day 4 Scope
-
-- Added live cuisine/area filtering through TheMealDB.
-- Loaded recipe categories from the API and connected category browsing.
-- Added ingredient-based search with multi-ingredient result matching.
-- Added A-Z/Z-A sorting and grid/list view switching for result cards.
-
-## Day 5 Scope
-
-- Added saved recipes with localStorage persistence.
-- Added a saved-recipes side panel with open, view, and remove actions.
-- Added recipe ratings and personal notes inside the detail modal.
-- Synced saved state, ratings, and notes across recipe cards and modal views.
-
-## Day 6 Scope
-
-- Added a weekly meal planner with breakfast, lunch, dinner, and snack slots.
-- Added shopping-list generation from planned recipes with checkbox progress.
-- Added cooking mode with step-by-step navigation and a simple kitchen timer.
-- Completed final persistence wiring for saved recipes, notes, ratings, plans,
-  and shopping lists.
-
-## Planned Milestones
-
-1. Project scaffold, separated files, responsive interface, and info popup.
-2. TheMealDB search integration, loading states, result rendering, and empty
-   states.
-3. Recipe detail modal with ingredients, instructions, tags, source links, and
-   random recipe support.
-4. Filters, categories, sorting, grid/list view, and ingredient-based search.
-5. Saved recipes, ratings, notes, local storage persistence, and favorites panel.
-6. Weekly meal planner, shopping list generation, cooking mode, responsive polish,
-   accessibility checks, and final README updates.
-
-## Tech Stack
-
-- HTML5
-- CSS3
-- Vanilla JavaScript
-- TheMealDB API
+The original single-file project design has been preserved. The CSS and
+JavaScript were extracted into separate root-level files, and an info popup was
+added to match the existing Savor interface.
