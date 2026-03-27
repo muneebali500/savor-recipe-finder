@@ -330,6 +330,16 @@
         await runSearch(() => filterByCat(cat), true);
       }
 
+      async function loadDefaultCategory(category = "Chicken") {
+        const btn = Array.from(document.querySelectorAll(".cat-chip")).find(
+          (chip) => chip.dataset.category === category,
+        );
+
+        if (!btn) return;
+
+        await toggleCategoryFilter(btn);
+      }
+
       function clearFilters() {
         state.activeArea = null;
         state.activeCategory = null;
@@ -828,9 +838,9 @@
         document.body.style.overflow = "";
       }
       function handleShopClick(e) {
-        if (e.target === document.getElementById("shopOverlay"))
+        if (e.target === document.getElementById("shopOverlay")) {
           closeShopList();
-          closeInfoPopup();
+        }
       }
       function renderShopList() {
         const body = document.getElementById("shopBody");
@@ -1190,6 +1200,7 @@
           closePlanner();
           closePickDay();
           closeShopList();
+          closePopup();
           if (document.getElementById("cookOverlay").classList.contains("open"))
             exitCookingMode();
         }
@@ -1199,12 +1210,16 @@
       // ════════════════════════════════════════
       // INFO POPUP
       // ════════════════════════════════════════
-      function showInfoPopup() {
-        document.getElementById("appInfoOverlay").classList.add("open");
+      function showPopup() {
+        const popupOverlay = document.getElementById("popup-overlay");
+        popupOverlay.classList.add("active");
+        popupOverlay.setAttribute("aria-hidden", "false");
         document.body.style.overflow = "hidden";
       }
-      function closeInfoPopup() {
-        document.getElementById("appInfoOverlay").classList.remove("open");
+      function closePopup() {
+        const popupOverlay = document.getElementById("popup-overlay");
+        popupOverlay.classList.remove("active");
+        popupOverlay.setAttribute("aria-hidden", "true");
         const overlays = [
           "modalOverlay",
           "plannerOverlay",
@@ -1217,13 +1232,13 @@
         );
         if (!keepLocked) document.body.style.overflow = "";
       }
-      function handleInfoPopupClick(e) {
-        if (e.target.id === "appInfoOverlay") closeInfoPopup();
-      }
+      document.getElementById("popup-overlay").addEventListener("click", (e) => {
+        if (e.target === document.getElementById("popup-overlay")) closePopup();
+      });
 
       // ════════════════════════════════════════
       // INIT
       // ════════════════════════════════════════
       hydrate();
-      loadCategories();
-      showInfoPopup();
+      loadCategories().then(() => loadDefaultCategory());
+      showPopup();

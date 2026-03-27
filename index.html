@@ -38,8 +38,8 @@
         <button
           class="theme-btn"
           style="color: var(--sand)"
-          onclick="showInfoPopup()"
-          id="infoBtn"
+          onclick="showPopup()"
+          id="info-btn"
           title="About Savor"
         >
           i
@@ -562,42 +562,151 @@
       <div class="fav-panel-body" id="favPanelBody"></div>
     </div>
 
-    <!-- INFO POPUP -->
-    <div
-      class="app-info-overlay"
-      id="appInfoOverlay"
-      onclick="handleInfoPopupClick(event)"
-    >
-      <div class="app-info-popup">
-        <button class="app-info-close" onclick="closeInfoPopup()">✕</button>
-        <div class="app-info-kicker">About Savor</div>
-        <h2>Advanced Recipe Finder</h2>
-        <p>
-          Discover real recipes from TheMealDB, browse by cuisine or category,
-          save favorites, plan meals, and generate a practical shopping list.
-        </p>
-        <div class="app-info-grid">
-          <div class="app-info-card">
-            <strong>Search</strong>
-            <span
-              >Find recipes by name, ingredients, cuisines, and
-              categories.</span
-            >
-          </div>
-          <div class="app-info-card">
-            <strong>Save</strong>
-            <span
-              >Keep favorites, ratings, and personal cooking notes
-              locally.</span
-            >
-          </div>
-          <div class="app-info-card">
-            <strong>Plan</strong>
-            <span>Build a weekly plan and create a shopping list from it.</span>
+    <div class="popup-overlay" id="popup-overlay" aria-hidden="true">
+      <div
+        class="popup-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="popup-title"
+      >
+        <div class="popup-header">
+          <h2 id="popup-title">🍽️ Savor - Advanced Recipe Finder</h2>
+          <p class="popup-subtitle">
+            Discover real recipes, save favorites, plan your week, and turn
+            meal ideas into a ready shopping list.
+          </p>
+        </div>
+
+        <div class="popup-section">
+          <h3>📖 What It Does</h3>
+          <p>
+            Savor is a polished recipe discovery app powered by TheMealDB. It
+            helps users search meals by name, browse cuisines and categories,
+            open detailed recipes, save favorites, rate dishes, write personal
+            notes, plan meals, and prepare shopping lists.
+          </p>
+        </div>
+
+        <div class="popup-section">
+          <h3>🎮 How to Use</h3>
+          <ul>
+            <li>Search for recipes like pasta, curry, tacos, or cake</li>
+            <li>Use cuisine and category chips to browse curated results</li>
+            <li>Add ingredients and search for matching recipes</li>
+            <li>Open any recipe to view ingredients and instructions</li>
+            <li>Save recipes, add ratings, and write personal notes</li>
+            <li>Add recipes to the weekly planner and generate shopping items</li>
+            <li>Use cooking mode for step-by-step kitchen guidance</li>
+            <li>Switch between grid/list views and toggle dark mode</li>
+          </ul>
+        </div>
+
+        <div class="popup-section">
+          <h3>✨ Key Features</h3>
+          <div class="highlight-box">
+            <ul style="margin: 0">
+              <li>
+                <strong>Recipe Search:</strong> Live recipe lookup through
+                TheMealDB API
+              </li>
+              <li>
+                <strong>Smart Browsing:</strong> Cuisine, category, and
+                ingredient-based discovery
+              </li>
+              <li>
+                <strong>Detailed Modal:</strong> Recipe image, stats,
+                ingredients, instructions, source links, and videos
+              </li>
+              <li>
+                <strong>Saved Collection:</strong> Favorites, ratings, and
+                notes stored with localStorage
+              </li>
+              <li>
+                <strong>Meal Planner:</strong> Weekly planning across
+                breakfast, lunch, dinner, and snacks
+              </li>
+              <li>
+                <strong>Shopping List:</strong> Generate ingredients from the
+                meal plan and check them off
+              </li>
+              <li>
+                <strong>Cooking Mode:</strong> Step-by-step view with timer
+                support
+              </li>
+              <li>
+                <strong>Responsive UI:</strong> Desktop and mobile layouts with
+                light/dark theme support
+              </li>
+            </ul>
           </div>
         </div>
-        <button class="app-info-primary" onclick="closeInfoPopup()">
-          Start exploring
+
+        <div class="popup-section">
+          <h3>🚀 Key JavaScript Concepts</h3>
+          <div class="highlight-box">
+            <ul style="margin: 0">
+              <li>
+                <strong>Async Fetch:</strong> API calls for search, filters,
+                lookup, categories, and random meals
+              </li>
+              <li>
+                <strong>State Management:</strong> Central state object for
+                recipes, filters, favorites, notes, planner, and shopping list
+              </li>
+              <li>
+                <strong>DOM Rendering:</strong> Dynamic cards, modals, panels,
+                planner grid, and shopping rows
+              </li>
+              <li>
+                <strong>localStorage:</strong> Persistent theme, favorites,
+                notes, ratings, shopping list, and meal plan
+              </li>
+              <li>
+                <strong>Drag & Drop:</strong> Recipe planning workflow through
+                draggable cards
+              </li>
+              <li>
+                <strong>IntersectionObserver:</strong> Infinite-style result
+                pagination
+              </li>
+              <li>
+                <strong>Timers:</strong> Cooking mode timer using interval
+                controls
+              </li>
+              <li>
+                <strong>Error Handling:</strong> User-facing toasts and graceful
+                empty states
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="popup-section">
+          <h3>🎨 Design Features</h3>
+          <ul>
+            <li>Editorial recipe-inspired typography and warm color palette</li>
+            <li>Sticky header with compact action buttons</li>
+            <li>Responsive recipe cards with image-forward presentation</li>
+            <li>Modal and side-panel workflows for focused cooking tasks</li>
+            <li>Animated loaders, toasts, and hover interactions</li>
+            <li>Dark mode support through CSS custom properties</li>
+          </ul>
+        </div>
+
+        <div class="popup-section">
+          <h3>💻 Technologies Used</h3>
+          <div class="tech-tags">
+            <span class="tech-tag">HTML5</span>
+            <span class="tech-tag">CSS3</span>
+            <span class="tech-tag">Vanilla JavaScript</span>
+            <span class="tech-tag">TheMealDB API</span>
+            <span class="tech-tag">localStorage</span>
+            <span class="tech-tag">Fetch API</span>
+          </div>
+        </div>
+
+        <button class="close-popup-btn" id="close-popup-btn" onclick="closePopup()">
+          Start Cooking!
         </button>
       </div>
     </div>
