@@ -2334,7 +2334,7 @@ main {
   display: none;
   justify-content: center;
   align-items: center;
-  overflow-y: auto;
+  overflow: hidden;
   background-color: rgba(0, 0, 0, 0.7);
 }
 
@@ -2347,11 +2347,43 @@ main {
   width: 100%;
   max-width: 700px;
   max-height: 85vh;
-  overflow-y: auto;
+  overflow: hidden;
   border-radius: 20px;
   background: linear-gradient(135deg, var(--warm-white) 0%, var(--cream) 100%);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: popupSlideUp 0.4s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(197, 103, 60, 0.72) rgba(197, 103, 60, 0.12);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.popup-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.popup-body::-webkit-scrollbar-track {
+  background: rgba(197, 103, 60, 0.08);
+  border-radius: 999px;
+  margin: 14px 8px;
+}
+
+.popup-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--terracotta), var(--gold));
+  border: 2px solid var(--warm-white);
+  border-radius: 999px;
+}
+
+.popup-body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--gold), var(--terracotta));
 }
 
 .popup-header {
